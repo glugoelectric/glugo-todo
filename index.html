@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="GLugo To-Do">
+<meta name="theme-color" content="#f4f5f7">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>GLugo To-Do</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#1b1f24; --muted:#66707a; --line:#e2e5e9;
+    --blue:#1f6feb; --blue-d:#1758c2; --green:#1a7f37; --red:#cf222e; --amber:#b35900; --pin:#e8a400;
+    --ghost:#dde7f8; --ghost-ink:#1758c2; --soft:#eef1f5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1216; --card:#181c22; --ink:#e8ebef; --muted:#9aa4ae; --line:#2a3038; --ghost:#22324a; --ghost-ink:#9cc2ff; --soft:#1f242c; }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:19px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+  button{font-family:inherit}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 16px 8px;border-bottom:1px solid var(--line)}
+  .hrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  h1{margin:0;font-size:25px;flex:1}
+  .count{color:var(--muted);font-size:16px;font-weight:500;margin-left:6px}
+  .tabs{display:flex;gap:8px}
+  .btn{appearance:none;border:0;border-radius:10px;padding:12px 17px;font-size:17px;font-weight:600;line-height:1;cursor:pointer;
+       background:var(--blue);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:active{background:var(--blue-d)}
+  .btn:disabled{opacity:.5}
+  .btn.ghost{background:var(--ghost);color:var(--ghost-ink)}
+  .btn.green{background:var(--green)}
+  .btn.red{background:var(--red)}
+  .btn.sm{padding:9px 13px;font-size:16px}
+  .btn.icon{padding:9px 12px;font-size:18px}
+  .tab{flex:1}
+  .tab:not(.on){background:var(--ghost);color:var(--ghost-ink)}
+  .search{width:100%;margin-top:8px;font:inherit;font-size:18px;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:9px 12px}
+  main{padding:10px 16px 120px;max-width:760px;margin:0 auto}
+  .filters{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+  .chip{flex:none;border:1.5px solid var(--blue);background:transparent;color:var(--blue);border-radius:999px;padding:8px 14px;font-size:16px;font-weight:600;cursor:pointer}
+  .chip.on{background:var(--blue);color:#fff}
+  .chip.add{border-style:dashed}
+  .status{font-size:14px;color:var(--muted);margin-top:6px;min-height:1em}
+  .status.bad{color:var(--red);font-weight:600}
+
+  /* swipe rows */
+  .sw{position:relative;margin:8px 0;border-radius:12px;overflow:hidden;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+  .sw-acts{position:absolute;top:0;right:0;bottom:0;display:flex}
+  .sw-acts button{border:0;color:#fff;font-size:17px;font-weight:700;cursor:pointer;width:92px}
+  .sw-del{background:var(--red)}
+  .sw-pin{background:var(--pin)}
+  .sw-inner{position:relative;transition:transform .2s;background:var(--card)}
+
+  .item{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;transition:box-shadow .3s}
+  .item.flash{box-shadow:inset 0 0 0 3px var(--amber)}
+  .check{flex:none;width:40px;height:40px;border-radius:50%;border:2.5px solid var(--green);background:transparent;cursor:pointer;display:grid;place-items:center;color:#fff;font-size:18px}
+  .item.done .check{background:var(--green)}
+  .body{flex:1;min-width:0;cursor:pointer}
+  .txt{font-weight:600;font-size:20px;word-wrap:break-word}
+  .item.done .txt{text-decoration:line-through;color:var(--muted)}
+  .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;font-size:15px;color:var(--muted)}
+  .tag{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  .tag.urgent{color:#fff;background:var(--red);border-color:var(--red)}
+  .note-prev{font-size:16px;color:var(--muted);margin-top:4px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-wrap:break-word}
+  .sec{display:flex;justify-content:space-between;align-items:center;margin:20px 0 4px;color:var(--muted);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.04em}
+  .empty{text-align:center;color:var(--muted);padding:40px 10px}
+  .hint{text-align:center;color:var(--muted);font-size:14px;margin-top:14px}
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));z-index:6;padding:16px 28px;font-size:19px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  #toast{position:fixed;left:50%;bottom:110px;transform:translate(-50%,0);opacity:0;pointer-events:none;transition:opacity .2s;z-index:90;color:#fff;font-weight:700;font-size:17px;padding:12px 20px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:90vw;text-align:center}
+  #toast.show{opacity:1}
+  #linkPop{position:fixed;z-index:60;display:none;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+  #linkPop.show{display:flex}
+  #editor a, .note-prev a{color:var(--blue);text-decoration:underline;word-break:break-all}
+
+  /* notes list */
+  .notecard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer}
+  .notecard .t{font-weight:700;font-size:19px;word-wrap:break-word}
+  .notecard .d{font-size:14px;color:var(--muted);margin-top:4px}
+
+  /* popups: X top-left, Done in the middle */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:none;align-items:flex-end;justify-content:center}
+  .scrim.open{display:flex}
+  @media (min-width:700px){ .scrim{align-items:center} }
+  .sheet{background:var(--card);width:100%;max-width:560px;border-radius:16px 16px 0 0;max-height:92vh;overflow:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  @media (min-width:700px){ .sheet{border-radius:16px} }
+  .top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:2}
+  .top .l{justify-self:start;display:flex;gap:6px;align-items:center;min-width:0}
+  .top .r{justify-self:end;display:flex;gap:6px;align-items:center;min-width:0}
+  .top .done{min-width:110px}
+  .xbtn{appearance:none;border:0;background:var(--soft);color:var(--ink);width:38px;height:38px;border-radius:50%;font-size:18px;font-weight:700;cursor:pointer}
+  .top .state{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fields{padding:14px 16px;display:grid;gap:14px}
+  label{font-size:15px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px}
+  input[type=text],input[type=url],textarea{width:100%;font-family:inherit;font-size:18px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px}
+  textarea{min-height:110px;resize:vertical}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .danger{display:flex;justify-content:space-between;gap:8px;padding:0 16px}
+  .list{padding:8px 12px}
+  .lrow{display:flex;align-items:center;gap:10px;padding:12px 6px;border-bottom:1px solid var(--line);cursor:pointer;font-size:18px}
+  .lrow .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .lrow.on{color:var(--blue);font-weight:700}
+
+  /* confirm */
+  #confirmScrim{z-index:80;align-items:center}
+  #pickScrim{z-index:60}
+  .confirm{background:var(--card);border-radius:16px;max-width:360px;width:88%;padding:22px 18px 16px;text-align:center}
+  .confirm h3{margin:0 0 8px;font-size:20px}
+  .confirm p{margin:0 0 18px;color:var(--muted);font-size:16px;word-wrap:break-word}
+  .confirm .row{justify-content:center;gap:12px}
+  .confirm .btn{flex:1}
+  .confirm input{margin-bottom:16px}
+
+  /* connect */
+  #connect{max-width:520px;margin:30px auto;padding:0 18px}
+  #connect h2{font-size:24px;margin:0 0 8px}
+  #connect p{color:var(--muted);font-size:17px}
+  #connect .fields{padding:0}
+
+  /* note editor (full screen) */
+  #noteScrim{align-items:stretch;z-index:30}
+  .notesheet{background:var(--card);width:100%;max-width:880px;height:100%;display:flex;flex-direction:column;margin:0 auto;padding-top:env(safe-area-inset-top)}
+  @media (min-width:700px){ #noteScrim{padding:24px} .notesheet{border-radius:16px;height:calc(100vh - 48px);overflow:hidden;padding-top:0} }
+  .toolbar{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--card);overflow-x:auto;scrollbar-width:none;flex:none}
+  .toolbar::-webkit-scrollbar{display:none}
+  .tb{flex:none;border:0;border-radius:9px;background:var(--ghost);color:var(--ghost-ink);font-size:16px;font-weight:700;padding:9px 11px;cursor:pointer;display:flex;align-items:center;gap:5px;line-height:1}
+  .tb svg{width:19px;height:19px}
+  .tb.on{background:var(--blue);color:#fff}
+  .tblbar{display:none;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);overflow-x:auto;flex:none;background:var(--soft)}
+  .tblbar.show{display:flex}
+  .editwrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+  #editor{min-height:100%;padding:16px 18px 160px;outline:none;font-size:19px;line-height:1.45;word-wrap:break-word;user-select:text;-webkit-user-select:text}
+  #editor > :first-child{font-size:27px;font-weight:800;line-height:1.25;margin-top:0}
+  #editor:empty::before{content:"Start writing — the first line is the title";color:var(--muted)}
+  #editor h2{font-size:24px;margin:10px 0 4px;line-height:1.25}
+  #editor h3{font-size:21px;margin:8px 0 2px;line-height:1.3}
+  #editor ul,#editor ol{margin:4px 0;padding-left:28px}
+  #editor ul.checklist{list-style:none;padding-left:0}
+  #editor ul.checklist li{position:relative;padding-left:40px;min-height:32px;margin:4px 0}
+  #editor ul.checklist li::before{content:"";position:absolute;left:2px;top:1px;width:24px;height:24px;border-radius:50%;border:2.5px solid var(--muted);cursor:pointer}
+  #editor ul.checklist li.checked::before{background:var(--green);border-color:var(--green)}
+  #editor ul.checklist li.checked::after{content:"✓";position:absolute;left:8px;top:1px;color:#fff;font-size:17px;font-weight:800;pointer-events:none}
+  #editor ul.checklist li.checked{color:var(--muted);text-decoration:line-through}
+  #editor table{border-collapse:collapse;margin:10px 0;width:100%;table-layout:fixed}
+  #editor td{border:1px solid var(--line);padding:7px 8px;vertical-align:top;min-width:60px;word-wrap:break-word}
+  #editor tr:first-child td{font-weight:700;background:var(--soft)}
+  .sk{margin:10px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;position:relative;max-width:100%}
+  .sk canvas{display:block;width:100%;height:auto}
+  .sk .ph{padding:30px;text-align:center;color:#66707a;font-size:16px}
+  .sk::after{content:"✏️ Tap to draw";position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:700;padding:5px 9px;border-radius:8px;pointer-events:none}
+  .att{margin:10px 0;border:1px solid var(--line);border-radius:12px;background:var(--soft);display:flex;gap:12px;align-items:center;padding:10px;cursor:pointer;user-select:none;-webkit-user-select:none}
+  .att .thumb{flex:none;width:64px;height:82px;border-radius:6px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;font-size:13px;font-weight:800;color:var(--red)}
+  .att .thumb canvas{width:100%;height:100%;object-fit:contain;display:block}
+  .att .an{font-weight:700;font-size:17px;word-break:break-word}
+  .att .as{font-size:14px;color:var(--muted)}
+
+  /* file viewer */
+  #fvScrim{z-index:45;align-items:stretch;background:#000}
+  .fvsheet{width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg);padding-top:env(safe-area-inset-top)}
+  .fvpages{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .fvpage{position:relative;width:100%;max-width:900px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+  .fvpage canvas{display:block;width:100%;height:auto}
+  .fvpage .mk{position:absolute;right:8px;top:8px}
+  .fvmsg{color:var(--muted);text-align:center;padding:40px 10px}
+  .fvbottom{display:flex;justify-content:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--card)}
+
+  /* sketch editor */
+  #skScrim{z-index:50;background:#000;align-items:stretch}
+  .sksheet{width:100%;height:100%;min-height:0;display:flex;flex-direction:column;background:#1b1f24;padding-top:env(safe-area-inset-top)}
+  .sksheet .top{background:#1b1f24;border-color:#333}
+  .sktools{display:flex;gap:8px;padding:8px 12px;background:#1b1f24;border-bottom:1px solid #333;align-items:center;overflow-x:auto}
+  .sw-color{flex:none;width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+  .sw-color.on{border-color:#fff;box-shadow:0 0 0 2px var(--blue)}
+  .sktools .tb.on{background:var(--blue);color:#fff}
+  .skstage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:10px;touch-action:none}
+  @media (max-height:560px){
+    .sksheet > .top{display:none}
+    .sktools .land{display:inline-flex!important}
+    .sktools{padding:6px 8px;gap:6px}
+    .sw-color{width:30px;height:30px}
+    .skstage{padding:4px}
+  }
+  .sktools .land{display:none}
+  #skCanvas{background:#fff;touch-action:none;border-radius:6px;transform-origin:0 0;will-change:transform}
+</style>
+</head>
+<body>
+<div id="connect" style="display:none">
+  <h2>Connect GLugo To-Do</h2>
+  <p>Paste the connection code from the email “GLugo To-Do: your connection key”. You only do this once on each device.</p>
+  <div class="fields">
+    <div><label for="cCode">Connection code (or Web app URL)</label><input type="url" id="cCode" placeholder="https://script.google.com/macros/s/…/exec|key" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <div><label for="cKey">Key (only if you pasted just the URL)</label><input type="text" id="cKey" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <button class="btn" id="cGo">Connect</button>
+    <div class="status" id="cStatus"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+<header>
+  <div class="hrow">
+    <h1>GLugo To-Do <span class="count" id="count"></span></h1>
+    <button class="btn ghost icon" id="menuBtn" aria-label="More">⋯</button>
+  </div>
+  <div class="tabs">
+    <button class="btn tab on" id="tabTodo">To-Do</button>
+    <button class="btn tab" id="tabNotes">Notes</button>
+  </div>
+  <input class="search" id="search" type="search" placeholder="Search tasks and notes" autocomplete="off">
+  <div class="status" id="status"></div>
+</header>
+
+<main>
+  <section id="todoView">
+    <div class="filters" id="filters"></div>
+    <div id="openList"></div>
+    <div class="sec" id="doneHead" style="display:none">
+      <span id="doneLabel">Done</span>
+      <button class="btn ghost sm" id="toggleDone">Show</button>
+    </div>
+    <div id="doneList" style="display:none"></div>
+    <div class="hint">Swipe left on a task to delete it.</div>
+  </section>
+  <section id="notesView" style="display:none">
+    <div class="filters" id="folderChips"></div>
+    <div id="notesList"></div>
+    <div class="hint">Swipe left on a note to pin or delete it.</div>
+  </section>
+</main>
+
+<button class="btn fab" id="fab">+ Add Task</button>
+</div>
+
+<div id="toast"></div>
+<div id="linkPop"><a id="lpOpen" class="btn" target="_blank" rel="noopener noreferrer">Open link ↗</a><button class="btn ghost" id="lpCopy">Copy</button></div>
+
+<!-- Task popup -->
+<div class="scrim" id="taskScrim">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="top"><span class="l"><button class="xbtn" id="taskX" aria-label="Close without saving">✕</button></span><button class="btn green done" id="taskDone">Done</button><span class="r"></span></div>
+    <div class="fields">
+      <div><label for="fText">Task</label><input type="text" id="fText" placeholder="e.g. Pick up breakers at supply house"></div>
+      <div><label>Area</label><div class="row" id="fArea"></div></div>
+      <div><label>Priority</label><div class="row"><button class="chip" id="fUrgent" type="button">Urgent</button></div></div>
+      <div><label for="fNotes">Notes (materials, sizes, links…)</label><textarea id="fNotes" placeholder="Optional"></textarea></div>
+    </div>
+    <div class="danger" id="taskDanger">
+      <button class="btn ghost" id="taskToggle">Mark done</button>
+      <button class="btn red" id="taskDelete">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pick list popup (folders, text style, backups) -->
+<div class="scrim" id="pickScrim">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="top"><span class="l"><button class="xbtn" id="pickX" aria-label="Close">✕</button></span><b id="pickTitle"></b><span class="r"></span></div>
+    <div class="list" id="pickList"></div>
+  </div>
+</div>
+
+<!-- Note editor -->
+<div class="scrim" id="noteScrim">
+  <div class="notesheet" role="dialog" aria-modal="true">
+    <div class="top">
+      <span class="l"><button class="btn ghost sm" id="noteFolder">📁 Notes</button></span>
+      <button class="btn green done" id="noteDone">Done</button>
+      <span class="r"><span class="state" id="noteState"></span><button class="btn ghost icon" id="notePin" aria-label="Pin">📌</button></span>
+    </div>
+    <div class="toolbar" id="toolbar">
+      <button class="tb" data-cmd="style">Aa</button>
+      <button class="tb" data-cmd="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 10"/></svg>Checklist</button>
+      <button class="tb" data-cmd="bullet"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="7" r="2"/><circle cx="5" cy="17" r="2"/><rect x="10" y="6" width="11" height="2.4" rx="1"/><rect x="10" y="16" width="11" height="2.4" rx="1"/></svg></button>
+      <button class="tb" data-cmd="number"><svg viewBox="0 0 24 24" fill="currentColor"><text x="1" y="10" font-size="9" font-weight="700">1</text><text x="1" y="21" font-size="9" font-weight="700">2</text><rect x="10" y="6" width="11" height="2.4" rx="1"/><rect x="10" y="16" width="11" height="2.4" rx="1"/></svg></button>
+      <button class="tb" data-cmd="bold"><b>B</b></button>
+      <button class="tb" data-cmd="italic"><i>I</i></button>
+      <button class="tb" data-cmd="underline"><u>U</u></button>
+      <button class="tb" data-cmd="strikeThrough"><s>S</s></button>
+      <button class="tb" data-cmd="table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/></svg>Table</button>
+      <button class="tb" data-cmd="photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 8"/></svg>Photo</button>
+      <button class="tb" data-cmd="camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Camera</button>
+      <button class="tb" data-cmd="file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>PDF / File</button>
+      <button class="tb" data-cmd="draw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg>Draw</button>
+    </div>
+    <div class="tblbar" id="tblBar">
+      <button class="tb" data-t="row">+ Row</button>
+      <button class="tb" data-t="col">+ Column</button>
+      <button class="tb" data-t="delrow">− Row</button>
+      <button class="tb" data-t="delcol">− Column</button>
+      <button class="tb" data-t="deltable">Delete table</button>
+    </div>
+    <div class="editwrap" id="editWrap"><div id="editor" contenteditable="true" spellcheck="true"></div></div>
+  </div>
+</div>
+<input type="file" id="photoInput" accept="image/*" multiple style="display:none">
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="fileInput" accept="application/pdf,.pdf,*/*" multiple style="display:none">
+
+<!-- File viewer -->
+<div class="scrim" id="fvScrim">
+  <div class="fvsheet" role="dialog" aria-modal="true">
+    <div class="top"><span class="l"><button class="xbtn" id="fvX" aria-label="Close">✕</button></span><b id="fvName" style="max-width:50vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b><span class="r"><a class="btn ghost sm" id="fvOpen" target="_blank" rel="noopener">Open ↗</a></span></div>
+    <div class="fvpages" id="fvPages"></div>
+    <div class="fvbottom"><button class="btn red sm" id="fvDelete">Remove from note</button></div>
+  </div>
+</div>
+
+<!-- Sketch editor -->
+<div class="scrim" id="skScrim">
+  <div class="sksheet" role="dialog" aria-modal="true">
+    <div class="top">
+      <span class="l"><button class="btn red sm" id="skDelete">Delete</button></span>
+      <button class="btn green done" id="skDone">Done</button>
+      <span class="r"></span>
+    </div>
+    <div class="sktools" id="skTools"></div>
+    <div class="skstage" id="skStage"><canvas id="skCanvas"></canvas></div>
+  </div>
+</div>
+
+<!-- Confirm / ask -->
+<div class="scrim" id="confirmScrim">
+  <div class="confirm" role="alertdialog" aria-modal="true">
+    <h3 id="cTitle">Delete?</h3>
+    <p id="cMsg">This can’t be undone.</p>
+    <input type="text" id="cInput" style="display:none">
+    <div class="row">
+      <button class="btn ghost" id="cNo">Cancel</button>
+      <button class="btn red" id="cYes">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const AREAS = ["Home","Yard","Work","Errands","Buy","Personal"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(_) { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(_) { return false; } }
+};
+let toastT; function toast(t,bad){const el=$("toast");el.textContent=t;el.style.background=bad?"var(--red)":"var(--green)";el.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove("show"),bad?4200:1800);}
+function fmtDate(ms){ if(!ms) return ""; const d=new Date(ms), now=new Date(); return d.toDateString()===now.toDateString() ? d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}) : d.toLocaleDateString(undefined,{month:"short",day:"numeric", year: d.getFullYear()!==now.getFullYear() ? "numeric" : undefined}); }
+function fmtSize(n){ if(!n) return ""; return n > 1048576 ? (n/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(n/1024))+" KB"; }
+
+/* =========================================================
+   Connection + sync with the Google Apps Script in his Drive
+   ========================================================= */
+let CONN = LS.get("gt.conn", null);           // {url, key}
+const EMPTY = () => ({todos:{}, notes:{}, sketches:{}, folders:[]});
+let DATA = LS.get("gt.cache", null) || EMPTY();
+let Q = LS.get("gt.queue", []);               // ops not yet saved to Drive
+let flushing = false, flushT = null, lastOk = 0, offline = false;
+
+async function call(a, extra){
+  if (!CONN) throw new Error("not connected");
+  const r = await fetch(CONN.url, { method:"POST", body: JSON.stringify(Object.assign({k:CONN.key, a}, extra||{})) });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json();
+  if (!j.ok) { const e = new Error(j.error || "error"); e.server = true; throw e; }
+  return j;
+}
+function applyOp(d, o){
+  if (o.a === "folders"){ d.folders = o.folders.slice(); return; }
+  if (!d[o.kind]) return;
+  if (o.a === "put") d[o.kind][o.id] = o.rec;
+  if (o.a === "del") delete d[o.kind][o.id];
+}
+function saveLocal(){ LS.set("gt.cache", DATA); LS.set("gt.queue", Q); }
+function op(o){ applyOp(DATA, o); Q.push(o); saveLocal(); flushSoon(); }
+function put(kind, id, rec){ rec.updated = Date.now(); op({a:"put", kind, id, rec}); }
+function del(kind, id){ op({a:"del", kind, id}); }
+function flushSoon(ms){ clearTimeout(flushT); flushT = setTimeout(flush, ms == null ? 400 : ms); setSync(); }
+async function flush(){
+  if (flushing || !Q.length || !CONN) return;
+  flushing = true; setSync();
+  const sending = Q.slice();
+  try{
+    const j = await call("batch", {ops: sending});
+    Q = Q.slice(sending.length);
+    fromServer(j.data); offline = false; lastOk = Date.now();
+  }catch(e){
+    offline = true;
+    if (e.server && /key/.test(e.message)) { showConnect("The key was not accepted. Paste the connection code again."); }
+    flushT = setTimeout(flush, 15000);
+  }finally{ flushing = false; saveLocal(); setSync(); if (Q.length && !offline) flushSoon(); }
+}
+function fromServer(d){
+  const fresh = Object.assign(EMPTY(), d || {});
+  Q.forEach(o => applyOp(fresh, o));
+  DATA = fresh; saveLocal(); render();
+  if ($("noteScrim").classList.contains("open")) paintMedia();
+}
+let pulling = false;
+async function pull(){
+  if (!CONN || pulling || flushing || Q.length || document.hidden) return;
+  pulling = true;
+  try{ const j = await call("load"); fromServer(j.data); offline = false; lastOk = Date.now(); }
+  catch(e){ offline = true; if (e.server && /key/.test(e.message)) showConnect("The key was not accepted. Paste the connection code again."); }
+  finally{ pulling = false; setSync(); }
+}
+function setSync(){
+  const el = $("status");
+  if (!CONN){ el.textContent = ""; return; }
+  if (Q.length && offline){ el.textContent = `Offline — ${Q.length} change${Q.length>1?"s":""} kept on this device, will save when back online.`; el.className = "status bad"; }
+  else if (Q.length || flushing){ el.textContent = "Saving to Google Drive…"; el.className = "status"; }
+  else if (offline){ el.textContent = "Offline — showing your last saved copy."; el.className = "status bad"; }
+  else { el.textContent = lastOk ? "Saved in Google Drive ✓" : "Loading…"; el.className = "status"; }
+}
+setInterval(() => { if (!document.hidden) { if (Q.length) flush(); else pull(); } }, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden){ if (Q.length) flush(); else pull(); } else if (curNote) saveNote(false); });
+window.addEventListener("online", () => flushSoon(0));
+window.addEventListener("pagehide", () => { if (curNote) saveNote(false); });
+
+/* ---------- connect screen ---------- */
+function parseConn(code, key){
+  code = String(code||"").trim(); key = String(key||"").trim();
+  if (code.includes("|")){ const i = code.lastIndexOf("|"); key = code.slice(i+1).trim(); code = code.slice(0,i).trim(); }
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(code)) return null;
+  if (!key) return null;
+  return {url: code, key};
+}
+function showConnect(msg){
+  $("app").style.display = "none"; $("connect").style.display = "block";
+  $("cStatus").textContent = msg || ""; $("cStatus").className = msg ? "status bad" : "status";
+}
+async function tryConnect(c){
+  $("cStatus").className = "status"; $("cStatus").textContent = "Connecting…"; $("cGo").disabled = true;
+  const old = CONN; CONN = c;
+  try{
+    const j = await call("load");
+    LS.set("gt.conn", c);
+    $("connect").style.display = "none"; $("app").style.display = "block";
+    fromServer(j.data); lastOk = Date.now(); offline = false; setSync(); flushSoon(0);
+    toast("Connected ✓");
+  }catch(e){
+    CONN = old;
+    $("cStatus").className = "status bad";
+    $("cStatus").textContent = e.server ? ("Not connected: " + e.message + ".") : "Could not reach your Google script. Check the URL and that the script is deployed for “Anyone”.";
+  }finally{ $("cGo").disabled = false; }
+}
+$("cGo").onclick = () => {
+  const c = parseConn($("cCode").value, $("cKey").value);
+  if (!c){ $("cStatus").className="status bad"; $("cStatus").textContent = "Paste the whole connection code from the email (it starts with https://script.google.com and has a | before the key)."; return; }
+  tryConnect(c);
+};
+
+/* =========================================================
+   Files: photos, PDFs and other attachments live in Drive
+   ========================================================= */
+let idbP = null;
+function idb(){
+  if (!idbP) idbP = new Promise(res => {
+    try{ const r = indexedDB.open("gt-files", 1); r.onupgradeneeded = () => r.result.createObjectStore("f"); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }
+    catch(_){ res(null); }
+  });
+  return idbP;
+}
+async function idbGet(id){ const d = await idb(); if (!d) return null; return new Promise(res => { try{ const r = d.transaction("f").objectStore("f").get(id); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }catch(_){ res(null); } }); }
+async function idbPut(id, blob){ const d = await idb(); if (!d) return; try{ d.transaction("f","readwrite").objectStore("f").put(blob, id); }catch(_){} }
+const memFiles = {};
+function b64ToBlob(b64, mime){ const bin = atob(b64), u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); return new Blob([u], {type: mime || "application/octet-stream"}); }
+function blobToB64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.onerror = () => rej(r.error); r.readAsDataURL(blob); }); }
+function fileBlob(id){
+  if (!id) return Promise.resolve(null);
+  if (!memFiles[id]) memFiles[id] = (async () => {
+    const c = await idbGet(id); if (c) return c;
+    const j = await call("file", {id});
+    const b = b64ToBlob(j.b64, j.mime); idbPut(id, b); return b;
+  })().catch(e => { delete memFiles[id]; throw e; });
+  return memFiles[id];
+}
+async function uploadBlob(blob, name){
+  if (blob.size > 40 * 1048576) throw new Error("That file is over 40 MB — too big to keep in a note.");
+  const j = await call("upload", {name: name || "file", mime: blob.type || "application/octet-stream", b64: await blobToB64(blob)});
+  memFiles[j.id] = Promise.resolve(blob); idbPut(j.id, blob);
+  return j.id;
+}
+function trashFile(id){ if (id) call("trash", {id}).catch(()=>{}); }
+
+/* =========================================================
+   Popups
+   ========================================================= */
+function ask(title, msg, yes, opts){
+  opts = opts || {};
+  return new Promise(res => {
+    $("cTitle").textContent = title; $("cMsg").textContent = msg || ""; $("cMsg").style.display = msg ? "" : "none";
+    $("cYes").textContent = yes || "Delete"; $("cYes").className = "btn " + (opts.input ? "" : "red");
+    const inp = $("cInput"); inp.style.display = opts.input ? "" : "none"; inp.value = opts.value || ""; inp.placeholder = opts.placeholder || "";
+    $("confirmScrim").classList.add("open");
+    if (opts.input) setTimeout(() => inp.focus(), 50);
+    const done = v => { $("confirmScrim").classList.remove("open"); $("cYes").onclick = $("cNo").onclick = inp.onkeydown = null; res(v); };
+    $("cYes").onclick = () => done(opts.input ? inp.value.trim() : true);
+    $("cNo").onclick = () => done(opts.input ? null : false);
+    inp.onkeydown = e => { if (e.key === "Enter"){ e.preventDefault(); $("cYes").click(); } };
+  });
+}
+const askDelete = (t, m) => ask(t, m, "Delete");
+function pick(title, items, onPick){
+  $("pickTitle").textContent = title;
+  $("pickList").innerHTML = items.map((it, i) => `<div class="lrow ${it.on?"on":""}" data-i="${i}"><span class="grow">${it.html || esc(it.label)}</span>${it.on?"✓":""}${it.del?`<button class="btn red sm" data-del="${i}">Delete</button>`:""}</div>`).join("");
+  $("pickList").querySelectorAll(".lrow").forEach(r => r.onclick = e => {
+    const it = items[+r.dataset.i];
+    if (e.target.closest("[data-del]")){ e.stopPropagation(); it.del(); return; }
+    closePick(); onPick(it);
+  });
+  $("pickScrim").classList.add("open");
+}
+function closePick(){ $("pickScrim").classList.remove("open"); }
+$("pickX").onclick = closePick;
+
+/* ---------- swipe rows ---------- */
+let openRow = null;
+function closeRow(r){ if(!r) return; r.querySelector(".sw-inner").style.transform=""; r._open=false; if(openRow===r) openRow=null; }
+function makeSwipe(row, acts){
+  const inner = row.querySelector(".sw-inner"), W = 92 * acts.length;
+  let sx=null, sy=0, dx=0, drag=null;
+  row.addEventListener("pointerdown", e => {
+    if (e.target.closest(".sw-acts")) return;
+    if (openRow && openRow!==row) closeRow(openRow);
+    sx=e.clientX; sy=e.clientY; dx=row._open?-W:0; drag=null;
+  });
+  row.addEventListener("pointermove", e => {
+    if (sx===null) return;
+    const mx=e.clientX-sx, my=e.clientY-sy;
+    if (drag===null){
+      if (Math.abs(mx)>10 && Math.abs(mx)>Math.abs(my)){ drag=true; try{row.setPointerCapture(e.pointerId);}catch(_){} }
+      else if (Math.abs(my)>10){ drag=false; }
+    }
+    if (drag){ dx=Math.min(0,Math.max(-W-40,(row._open?-W:0)+mx)); inner.style.transition="none"; inner.style.transform=`translateX(${dx}px)`; }
+  });
+  const end = () => {
+    if (sx===null) return;
+    if (drag){
+      row._open = dx < -45; inner.style.transition=""; inner.style.transform = row._open ? `translateX(-${W}px)` : "";
+      if (row._open) openRow=row;
+      row._swipeEnd = Date.now();
+    }
+    sx=null;
+  };
+  row.addEventListener("pointerup", end); row.addEventListener("pointercancel", end);
+  row.addEventListener("click", e => {
+    if (e.target.closest(".sw-acts")) return;
+    if (row._swipeEnd && Date.now()-row._swipeEnd < 350){ e.stopPropagation(); e.preventDefault(); return; }
+    if (row._open){ e.stopPropagation(); e.preventDefault(); closeRow(row); }
+  }, true);
+  row.querySelectorAll(".sw-acts button").forEach((b, i) => b.onclick = async e => { e.stopPropagation(); const keep = await acts[i].run(); if (!keep) closeRow(row); });
+}
+const swWrap = (inner, acts) => `<div class="sw"><div class="sw-acts">${acts.map(a => `<button class="${a.cls}">${a.label}</button>`).join("")}</div><div class="sw-inner">${inner}</div></div>`;
+
+/* =========================================================
+   Lists
+   ========================================================= */
+let filter = "All", folderSel = "All", showDone = false, view = "todo", query = "";
+const tasks = () => Object.keys(DATA.todos).map(id => Object.assign({id}, DATA.todos[id]));
+const notes = () => Object.keys(DATA.notes).map(id => Object.assign({id}, DATA.notes[id]));
+function noteMeta(n){
+  const lines = (n.text||"").split("\n").map(s=>s.trim()).filter(Boolean);
+  return { title: lines[0] || (n.hasMedia || n.hasSketch ? "Attachment" : "New Note"), sub: lines.slice(1).join(" ").slice(0,160) };
+}
+function renderFilters(){
+  const all = ["All", ...AREAS, "Urgent"];
+  $("filters").innerHTML = all.map(a => `<button class="chip ${a===filter?"on":""}" data-f="${esc(a)}">${esc(a)}</button>`).join("");
+  $("filters").querySelectorAll(".chip").forEach(b => b.onclick = () => { filter = b.dataset.f; render(); });
+  const fs = ["All", ...DATA.folders];
+  if (!fs.includes(folderSel)) folderSel = "All";
+  $("folderChips").innerHTML = fs.map(f => `<button class="chip ${f===folderSel?"on":""}" data-fo="${esc(f)}">${f==="All"?"All notes":"📁 "+esc(f)}</button>`).join("") +
+    `<button class="chip add" id="addFolder">+ Folder</button>` + (DATA.folders.length ? `<button class="chip add" id="editFolders">Edit</button>` : "");
+  $("folderChips").querySelectorAll("[data-fo]").forEach(b => b.onclick = () => { folderSel = b.dataset.fo; render(); });
+  $("addFolder").onclick = async () => { const f = await newFolder(); if (f){ folderSel = f; render(); } };
+  const ef = $("editFolders"); if (ef) ef.onclick = editFolders;
+}
+async function newFolder(){
+  const name = await ask("New folder", "", "Add", {input:true, placeholder:"Folder name"});
+  if (!name) return null;
+  if (!DATA.folders.includes(name)) op({a:"folders", folders:[...DATA.folders, name]});
+  render(); return name;
+}
+function editFolders(){
+  pick("Folders", DATA.folders.map(f => ({label:"📁 " + f, f, del: async () => {
+    const n = notes().filter(x => x.folder === f).length;
+    if (!await askDelete(`Delete folder “${f}”?`, n ? `Its ${n} note${n>1?"s":""} will NOT be deleted — they move to All notes.` : "The folder is empty.")) return;
+    notes().filter(x => x.folder === f).forEach(x => { const r = Object.assign({}, DATA.notes[x.id]); r.folder = ""; put("notes", x.id, r); });
+    op({a:"folders", folders: DATA.folders.filter(x => x !== f)});
+    closePick(); if (folderSel === f) folderSel = "All"; render(); toast("Folder deleted");
+  }})), it => { folderSel = it.f; render(); });
+}
+function itemHTML(t){
+  return swWrap(`<div class="item ${t.done?"done":""}" id="item-${esc(t.id)}" data-tid="${esc(t.id)}">
+    <button class="check" data-check="${esc(t.id)}" aria-label="${t.done?"Mark not done":"Mark done"}">${t.done?"✓":""}</button>
+    <div class="body" data-open="${esc(t.id)}">
+      <div class="txt">${esc(t.text)}</div>
+      <div class="meta">
+        ${t.urgent && !t.done ? `<span class="tag urgent">Urgent</span>`:""}
+        <span class="tag">${esc(t.area||"Home")}</span>
+        ${t.done ? `<span>Done ${fmtDate(t.doneAt)}</span>` : `<span>Added ${fmtDate(t.created)}</span>`}
+      </div>
+      ${t.notes ? `<div class="note-prev">${linkifyText(t.notes)}</div>`:""}
+    </div></div>`, [{cls:"sw-del", label:"Delete"}]);
+}
+function noteCard(n){
+  const m = noteMeta(n);
+  return swWrap(`<div class="notecard" data-note="${esc(n.id)}">
+    <div class="t">${n.pinned?"📌 ":""}${esc(m.title)}</div>
+    ${m.sub?`<div class="note-prev">${esc(m.sub)}</div>`:""}
+    <div class="d">${fmtDate(n.updated)}${n.folder && folderSel==="All" ? " · 📁 "+esc(n.folder) : ""}${n.hasMedia||n.hasSketch?" · 📎":""}</div></div>`,
+    [{cls:"sw-pin", label: n.pinned ? "Unpin" : "Pin"}, {cls:"sw-del", label:"Delete"}]);
+}
+function render(){
+  openRow = null;
+  renderFilters();
+  const q = query.toLowerCase();
+  const hit = s => !q || String(s||"").toLowerCase().includes(q);
+  const T = tasks();
+  const match = t => (filter==="All" || (filter==="Urgent" ? t.urgent : (t.area||"Home")===filter)) && (hit(t.text) || hit(t.notes));
+  const open = T.filter(t => !t.done && match(t)).sort((a,b) => (b.urgent?1:0)-(a.urgent?1:0) || (a.created||0)-(b.created||0));
+  const done = T.filter(t => t.done && match(t)).sort((a,b) => (b.doneAt||0)-(a.doneAt||0));
+  $("count").textContent = `${T.filter(t=>!t.done).length} open`;
+  $("openList").innerHTML = open.length ? open.map(itemHTML).join("") :
+    `<div class="empty">${q ? "No tasks match." : T.length ? "Nothing open here. 👍" : "No tasks yet. Tap “+ Add Task”."}</div>`;
+  const sd = showDone || !!q;
+  $("doneHead").style.display = done.length ? "flex" : "none";
+  $("doneLabel").textContent = `Done (${done.length})`;
+  $("toggleDone").textContent = sd ? "Hide" : "Show";
+  $("doneList").style.display = sd ? "block" : "none";
+  $("doneList").innerHTML = sd ? done.map(itemHTML).join("") : "";
+  document.querySelectorAll("#todoView .sw").forEach(r => { const id=r.querySelector("[data-tid]").dataset.tid; makeSwipe(r, [{run: async () => !(await deleteTask(id)) ? false : true}]); });
+  document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => toggleTask(b.dataset.check));
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { if (e.target.closest("a")) return; openTask(b.dataset.open); });
+
+  const ns = notes().filter(n => (folderSel==="All" || n.folder===folderSel) && hit(n.text)).sort((a,b)=>(b.updated||0)-(a.updated||0));
+  const pinned = ns.filter(n => n.pinned), rest = ns.filter(n => !n.pinned);
+  $("notesList").innerHTML = ns.length
+    ? (pinned.length ? `<div class="sec">Pinned</div>${pinned.map(noteCard).join("")}${rest.length?`<div class="sec">Notes</div>`:""}` : "") + rest.map(noteCard).join("")
+    : `<div class="empty">${q ? "No notes match." : "No notes here yet. Tap “+ New Note”."}</div>`;
+  document.querySelectorAll("#notesView .sw").forEach(r => { const id=r.querySelector("[data-note]").dataset.note; makeSwipe(r, [
+    {run: () => { togglePin(id); return false; }},
+    {run: async () => await deleteNote(id)}
+  ]); });
+  document.querySelectorAll("[data-note]").forEach(b => b.onclick = () => openNote(b.dataset.note));
+}
+function togglePin(id){ const n = DATA.notes[id]; if (!n) return; const r = Object.assign({}, n, {pinned: !n.pinned}); r.updated = n.updated; op({a:"put", kind:"notes", id, rec:r}); render(); }
+$("search").addEventListener("input", e => { query = e.target.value.trim(); render(); });
+
+/* ---------- tasks ---------- */
+let editing = null, editArea = "Home", editUrgent = false;
+async function deleteTask(id){
+  const t = DATA.todos[id]; if(!t) return false;
+  if (!await askDelete("Delete this task?", `“${t.text}” will be gone for good.`)) return false;
+  del("todos", id); render(); toast("Deleted"); return true;
+}
+function toggleTask(id){
+  const t = DATA.todos[id]; if(!t) return;
+  const done = !t.done;
+  put("todos", id, Object.assign({}, t, {done, doneAt: done ? Date.now() : 0})); render();
+}
+function paintAreaChips(){
+  $("fArea").innerHTML = AREAS.map(a => `<button type="button" class="chip ${a===editArea?"on":""}" data-a="${esc(a)}">${esc(a)}</button>`).join("");
+  $("fArea").querySelectorAll(".chip").forEach(b => b.onclick = () => { editArea = b.dataset.a; paintAreaChips(); });
+  $("fUrgent").classList.toggle("on", editUrgent);
+}
+function openTask(id){
+  const t = id ? DATA.todos[id] : null;
+  editing = t ? id : null;
+  $("fText").value = t ? t.text : "";
+  $("fNotes").value = t ? (t.notes||"") : "";
+  editArea = t ? (t.area||"Home") : (AREAS.includes(filter) ? filter : "Home");
+  editUrgent = t ? !!t.urgent : filter==="Urgent";
+  $("taskDanger").style.display = t ? "flex" : "none";
+  if (t) $("taskToggle").textContent = t.done ? "Mark not done" : "Mark done";
+  paintAreaChips();
+  $("taskScrim").classList.add("open");
+  if (!t) $("fText").focus();
+}
+$("fUrgent").onclick = () => { editUrgent = !editUrgent; paintAreaChips(); };
+function saveTask(){
+  const text = $("fText").value.trim(), notesTxt = $("fNotes").value.trim();
+  $("taskScrim").classList.remove("open");
+  if (editing){
+    const t = DATA.todos[editing];
+    if (!t || !text) return;
+    if (t.text===text && (t.notes||"")===notesTxt && (t.area||"Home")===editArea && !!t.urgent===editUrgent) return;
+    put("todos", editing, Object.assign({}, t, {text, notes: notesTxt, area: editArea, urgent: editUrgent})); toast("Saved ✓");
+  } else if (text){
+    put("todos", newId(), {text, notes: notesTxt, area: editArea, urgent: editUrgent, done:false, doneAt:0, created: Date.now()}); toast("Saved ✓");
+  }
+  render();
+}
+$("taskDone").onclick = saveTask;
+$("taskX").onclick = async () => {
+  const t = editing ? DATA.todos[editing] : null;
+  const changed = t ? ($("fText").value.trim() !== t.text || $("fNotes").value.trim() !== (t.notes||"")) : !!$("fText").value.trim();
+  if (changed && !await ask("Close without saving?", "Your changes to this task will be lost.", "Discard")) return;
+  $("taskScrim").classList.remove("open");
+};
+$("taskToggle").onclick = () => { const id = editing; saveTask(); if (id) toggleTask(id); };
+$("taskDelete").onclick = async () => { const id = editing; if (await deleteTask(id)) $("taskScrim").classList.remove("open"); };
+$("fText").addEventListener("keydown", e => { if (e.key==="Enter"){ e.preventDefault(); saveTask(); }});
+
+/* =========================================================
+   Note editor
+   ========================================================= */
+const ED = $("editor");
+let curNote = null, noteDirty = false, saveTimer = null, savedRange = null;
+try{ document.execCommand("defaultParagraphSeparator", false, "div"); }catch(_){}
+
+/* ---- links ---- */
+const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"]+/gi;
+function safeHref(h){
+  h = String(h||"").trim(); if (/^www\./i.test(h)) h = "https://" + h;
+  try { const u = new URL(h); return /^https?:$/.test(u.protocol) ? u.href : ""; } catch(_) { return ""; }
+}
+function trimUrl(u){ const m = u.match(/[.,;:!?)\]}'"]+$/); return m ? [u.slice(0,-m[0].length), m[0]] : [u, ""]; }
+function linkifyText(text){
+  let out = "", last = 0;
+  String(text).replace(URL_RE, (m, i) => {
+    const [u, tail] = trimUrl(m); const href = safeHref(u);
+    out += esc(text.slice(last, i)) + (href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>` : esc(u)) + esc(tail);
+    last = i + m.length; return m;
+  });
+  return out + esc(String(text).slice(last));
+}
+function linkifyDOM(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentNode.closest("a,.sk,.att") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const list = []; while (w.nextNode()) { URL_RE.lastIndex = 0; if (URL_RE.test(w.currentNode.nodeValue)) list.push(w.currentNode); }
+  list.forEach(t => { const span = document.createElement("span"); span.innerHTML = linkifyText(t.nodeValue); t.replaceWith(...span.childNodes); });
+  URL_RE.lastIndex = 0;
+}
+
+/* ---- media blocks: drawings/photos (.sk) and files (.att) ---- */
+const MEDIA = ".sk[data-sk],.att[data-file]";
+const ID_OK = /^[A-Za-z0-9_-]{4,90}$/;
+const mediaKey = el => el.dataset.sk ? "sk:" + el.dataset.sk : "att:" + el.dataset.file;
+function attHTML(a){ return `<div class="att" contenteditable="false" data-file="${esc(a.file)}" data-name="${esc(a.name)}" data-mime="${esc(a.mime)}" data-size="${esc(a.size||"")}"></div>`; }
+const ALLOWED = {DIV:1,P:1,BR:1,UL:1,OL:1,LI:1,B:1,STRONG:1,I:1,EM:1,U:1,S:1,STRIKE:1,SPAN:1,H1:1,H2:1,H3:1,TABLE:1,TBODY:1,TR:1,TD:1,TH:1};
+function cleanHTML(html){
+  const d = new DOMParser().parseFromString("<body>"+(html||"")+"</body>","text/html");
+  (function walk(n){
+    [...n.childNodes].forEach(c => {
+      if (c.nodeType===3) return;
+      if (c.nodeType!==1){ c.remove(); return; }
+      if (c.tagName==="DIV" && c.classList.contains("sk")){
+        const id = c.getAttribute("data-sk")||"";
+        if (ID_OK.test(id)){ const k = d.createElement("div"); k.className="sk"; k.setAttribute("contenteditable","false"); k.setAttribute("data-sk",id); c.replaceWith(k); } else c.remove();
+        return;
+      }
+      if (c.tagName==="DIV" && c.classList.contains("att")){
+        const id = c.getAttribute("data-file")||"";
+        if (ID_OK.test(id)){
+          const k = d.createElement("div"); k.className="att"; k.setAttribute("contenteditable","false");
+          ["data-file","data-name","data-mime","data-size"].forEach(a => k.setAttribute(a, (c.getAttribute(a)||"").slice(0,200)));
+          c.replaceWith(k);
+        } else c.remove();
+        return;
+      }
+      if (c.tagName==="A"){
+        const href = safeHref(c.getAttribute("href"));
+        if (!href){ walk(c); c.replaceWith(...c.childNodes); return; }
+        [...c.attributes].forEach(a => c.removeAttribute(a.name));
+        c.setAttribute("href", href); walk(c); return;
+      }
+      if (!ALLOWED[c.tagName]){ walk(c); c.replaceWith(...c.childNodes); return; }
+      const cls = (c.tagName==="UL" && c.classList.contains("checklist")) ? "checklist" : (c.tagName==="LI" && c.classList.contains("checked")) ? "checked" : "";
+      [...c.attributes].forEach(a => c.removeAttribute(a.name));
+      if (cls) c.className = cls;
+      walk(c);
+    });
+  })(d.body);
+  return d.body.innerHTML;
+}
+function editorText(){
+  const clone = ED.cloneNode(true);
+  clone.querySelectorAll(".sk").forEach(s=>s.remove());
+  clone.querySelectorAll(".att").forEach(a => a.replaceWith("📎 " + (a.dataset.name||"file") + "\n"));
+  clone.querySelectorAll("div,p,li,br,h1,h2,h3,tr").forEach(el => { if (el.tagName==="BR") el.replaceWith("\n"); else el.append("\n"); });
+  clone.querySelectorAll("td").forEach(el => el.append("  "));
+  return clone.textContent.replace(/ /g," ").replace(/\n{3,}/g,"\n\n").trim();
+}
+function ensureFirstBlock(){
+  if (!ED.firstChild){ ED.innerHTML = "<div><br></div>"; }
+  else if (ED.firstChild.nodeType===3){ const dv=document.createElement("div"); ED.insertBefore(dv, ED.firstChild); dv.appendChild(dv.nextSibling); }
+}
+function placeCaret(node, atStart){
+  const r = document.createRange(); r.selectNodeContents(node); r.collapse(!!atStart);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function topBlock(n){ while (n && n.parentNode !== ED) n = n.parentNode; return n; }
+function snapshotMedia(){
+  curNote.media = new Map();
+  ED.querySelectorAll(MEDIA).forEach(el => curNote.media.set(mediaKey(el), el.dataset.sk ? `<div class="sk" contenteditable="false" data-sk="${esc(el.dataset.sk)}"></div>` : attHTML({file:el.dataset.file, name:el.dataset.name, mime:el.dataset.mime, size:el.dataset.size})));
+}
+function paintFolderBtn(){
+  const f = curNote && curNote.folder;
+  $("noteFolder").textContent = "📁 " + (f || "No folder");
+  $("notePin").classList.toggle("green", !!(curNote && curNote.pinned));
+  $("notePin").style.opacity = curNote && curNote.pinned ? "1" : ".55";
+}
+function openNote(id){
+  const n = id ? DATA.notes[id] : null;
+  curNote = n ? {id, created:n.created, folder:n.folder||"", pinned:!!n.pinned} : {id:newId(), created:Date.now(), isNew:true, folder: folderSel!=="All" ? folderSel : "", pinned:false};
+  let h = n ? n.html : "";
+  if (n && h == null && (n.title || n.body)) {
+    h = [n.title, ...(String(n.body||"").split("\n"))].filter(x => x!=null).map(l => `<div>${esc(l)||"<br>"}</div>`).join("");
+  }
+  ED.innerHTML = n ? cleanHTML(h) : "";
+  linkifyDOM(ED);
+  ED.querySelectorAll(MEDIA).forEach(k => { if (k.parentNode !== ED){ topBlock(k).after(k); } });
+  noteDirty = false; $("noteState").textContent = "";
+  snapshotMedia(); paintMedia(); paintFolderBtn();
+  $("tblBar").classList.remove("show");
+  $("noteScrim").classList.add("open");
+  $("editWrap").scrollTop = 0;
+  if (!n){ ED.innerHTML = "<div><br></div>"; ED.focus(); placeCaret(ED.firstChild, true); }
+}
+function saveNote(final){
+  clearTimeout(saveTimer);
+  if (!curNote) return;
+  restoreLost();
+  const text = editorText();
+  const hasMedia = !!ED.querySelector(MEDIA);
+  const html = cleanHTML(ED.innerHTML);
+  if (!text && !hasMedia){
+    if (final && !curNote.isNew && DATA.notes[curNote.id]) { del("notes", curNote.id); render(); }
+    return;
+  }
+  const old = DATA.notes[curNote.id];
+  const metaChanged = !old || (old.folder||"") !== curNote.folder || !!old.pinned !== curNote.pinned;
+  if (!noteDirty && !curNote.isNew && !metaChanged) return;
+  put("notes", curNote.id, {html, text: text.slice(0,2000), hasMedia, folder: curNote.folder, pinned: curNote.pinned, created: curNote.created});
+  curNote.isNew = false; noteDirty = false;
+  $("noteState").textContent = "Saved ✓";
+  render();
+}
+function markDirty(){ noteDirty = true; $("noteState").textContent = "Editing…"; clearTimeout(saveTimer); saveTimer = setTimeout(()=>saveNote(false), 1500); }
+ED.addEventListener("input", () => { ensureFirstBlock(); restoreLost(); markDirty(); });
+function restoreLost(){
+  if (!curNote || !curNote.media) return;
+  const have = new Set([...ED.querySelectorAll(MEDIA)].map(mediaKey));
+  const lost = [...curNote.media.keys()].filter(k => !have.has(k));
+  if (!lost.length) return;
+  const s = getSelection(); const blk = s.rangeCount && ED.contains(s.anchorNode) ? topBlock(s.getRangeAt(0).startContainer) : null;
+  lost.forEach(k => {
+    const t = document.createElement("div"); t.innerHTML = curNote.media.get(k); const el = t.firstChild;
+    if (blk && blk.parentNode===ED) blk.after(el); else ED.appendChild(el);
+  });
+  paintMedia(); protectMsg();
+}
+/* protect drawings and files from Backspace / Delete */
+function atBlockEdge(range, block, start){
+  const r = document.createRange(); r.selectNodeContents(block);
+  if (start) r.setEnd(range.startContainer, range.startOffset); else r.setStart(range.endContainer, range.endOffset);
+  return !r.toString().replace(/​/g,"").length;
+}
+const isMedia = el => !!(el && el.nodeType===1 && el.matches && el.matches(".sk,.att"));
+function wouldHitMedia(type){
+  const s = getSelection(); if (!s.rangeCount) return false;
+  const r = s.getRangeAt(0);
+  if (!r.collapsed) return [...ED.querySelectorAll(".sk,.att")].some(m => r.intersectsNode(m));
+  const back = type.includes("Backward");
+  let n = r.startContainer; if (n.nodeType===3) n = n.parentNode;
+  if (n.closest && n.closest(".sk,.att")) return true;
+  while (n && n !== ED){
+    if (!atBlockEdge(r, n, back)) return false;
+    const sib = back ? n.previousSibling : n.nextSibling;
+    const el = (sib && sib.nodeType===3 && !sib.textContent.trim()) ? (back ? sib.previousSibling : sib.nextSibling) : sib;
+    if (el) return isMedia(el) || isMedia(back ? el.lastElementChild : el.firstElementChild);
+    n = n.parentNode;
+  }
+  return false;
+}
+function protectMsg(){ toast("Kept safe. To remove a drawing, photo or file, tap it.", true); }
+ED.addEventListener("beforeinput", e => {
+  if (e.inputType && e.inputType.startsWith("delete") && wouldHitMedia(e.inputType)){ e.preventDefault(); protectMsg(); }
+});
+ED.addEventListener("keydown", e => {
+  if ((e.key==="Backspace" || e.key==="Delete") && wouldHitMedia(e.key==="Backspace" ? "deleteContentBackward" : "deleteContentForward")){ e.preventDefault(); protectMsg(); }
+  if (e.key==="Enter") setTimeout(() => { const li = blockInEditor("li"); if (li && li.classList.contains("checked") && !li.textContent.trim()) li.classList.remove("checked"); }, 0);
+  if (e.key==="Tab" && blockInEditor("td")){ e.preventDefault(); moveCell(e.shiftKey ? -1 : 1); }
+});
+function closeNote(){
+  ED.blur(); hideLinkPop(); linkifyDOM(ED);
+  if (curNote){ noteDirty = noteDirty || false; saveNote(true); }
+  $("noteScrim").classList.remove("open"); curNote = null;
+}
+$("noteDone").onclick = closeNote;
+$("notePin").onclick = () => { if (!curNote) return; curNote.pinned = !curNote.pinned; paintFolderBtn(); noteDirty = true; saveNote(false); toast(curNote.pinned ? "Pinned 📌" : "Unpinned"); };
+$("noteFolder").onclick = () => {
+  if (!curNote) return;
+  const items = [{label:"No folder", f:"", on: !curNote.folder}, ...DATA.folders.map(f => ({label:"📁 "+f, f, on: curNote.folder===f})), {html:"<b style='color:var(--blue)'>+ New folder</b>", add:true}];
+  pick("Move to folder", items, async it => {
+    let f = it.f;
+    if (it.add){ f = await newFolder(); if (f == null) return; }
+    curNote.folder = f; paintFolderBtn(); noteDirty = true; saveNote(false);
+  });
+};
+async function deleteNote(id){
+  const n = DATA.notes[id]; if(!n) return false;
+  if (!await askDelete("Delete this note?", `“${noteMeta(n).title}” and its drawings, photos and files will be gone for good.`)) return false;
+  const doc = new DOMParser().parseFromString(n.html||"","text/html");
+  doc.querySelectorAll("[data-sk]").forEach(e => { const sid = e.getAttribute("data-sk"), s = DATA.sketches[sid]; if (s && s.bg) trashFile(s.bg); del("sketches", sid); });
+  doc.querySelectorAll("[data-file]").forEach(e => trashFile(e.getAttribute("data-file")));
+  del("notes", id); render(); toast("Deleted"); return true;
+}
+
+/* link bubble */
+function showLinkPop(a){
+  const p = $("linkPop"), r = a.getBoundingClientRect();
+  $("lpOpen").href = a.getAttribute("href");
+  $("lpCopy").onclick = async () => { try{ await navigator.clipboard.writeText(a.getAttribute("href")); toast("Link copied ✓"); }catch(_){ toast("Couldn’t copy", true); } hideLinkPop(); };
+  p.classList.add("show");
+  const w = p.offsetWidth, h = p.offsetHeight;
+  p.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + "px";
+  p.style.top = (r.bottom + 8 + h < innerHeight ? r.bottom + 8 : Math.max(8, r.top - h - 8)) + "px";
+}
+function hideLinkPop(){ $("linkPop").classList.remove("show"); }
+$("lpOpen").addEventListener("click", () => setTimeout(hideLinkPop, 100));
+$("editWrap").addEventListener("scroll", hideLinkPop);
+
+/* ---- toolbar ---- */
+function blockInEditor(sel){
+  const s = getSelection(); if (!s.rangeCount) return null;
+  let n = s.anchorNode; while (n && n!==ED){ if (n.nodeType===1 && n.matches(sel)) return n; n = n.parentNode; }
+  return null;
+}
+function saveRange(){ const s=getSelection(); if (s.rangeCount && ED.contains(s.anchorNode)) savedRange = s.getRangeAt(0).cloneRange(); }
+function restoreRange(){
+  ED.focus();
+  const s=getSelection(); s.removeAllRanges();
+  if (savedRange && ED.contains(savedRange.startContainer)) s.addRange(savedRange);
+  else { const r=document.createRange(); r.selectNodeContents(ED); r.collapse(false); s.addRange(r); }
+}
+["toolbar","tblBar"].forEach(id => $(id).addEventListener("pointerdown", e => { if (e.target.closest(".tb")) { saveRange(); e.preventDefault(); } }));
+$("toolbar").addEventListener("click", e => {
+  const b = e.target.closest(".tb"); if (!b) return;
+  const cmd = b.dataset.cmd;
+  if (cmd==="draw"){ saveRange(); openSketch(null, null); return; }
+  if (cmd==="photo"){ saveRange(); $("photoInput").click(); return; }
+  if (cmd==="camera"){ saveRange(); $("cameraInput").click(); return; }
+  if (cmd==="file"){ saveRange(); $("fileInput").click(); return; }
+  if (cmd==="style"){
+    saveRange();
+    const cur = blockInEditor("h2") ? "h2" : blockInEditor("h3") ? "h3" : "div";
+    pick("Text style", [
+      {html:"<span style='font-size:24px;font-weight:800'>Heading</span>", tag:"h2", on:cur==="h2"},
+      {html:"<span style='font-size:21px;font-weight:700'>Subheading</span>", tag:"h3", on:cur==="h3"},
+      {html:"Body", tag:"div", on:cur==="div"}
+    ], it => { restoreRange(); document.execCommand("formatBlock", false, it.tag === "div" ? "div" : it.tag); ensureFirstBlock(); markDirty(); });
+    return;
+  }
+  restoreRange();
+  if (["bold","italic","underline","strikeThrough"].includes(cmd)) document.execCommand(cmd);
+  if (cmd==="number"){
+    const ul = blockInEditor("ul"); if (ul && ul.classList.contains("checklist")) ul.classList.remove("checklist");
+    document.execCommand("insertOrderedList");
+  }
+  if (cmd==="bullet"){
+    const ul = blockInEditor("ul");
+    if (ul && ul.classList.contains("checklist")) ul.classList.remove("checklist");
+    else document.execCommand("insertUnorderedList");
+  }
+  if (cmd==="check"){
+    const ul = blockInEditor("ul");
+    if (ul && ul.classList.contains("checklist")) document.execCommand("insertUnorderedList");
+    else {
+      if (blockInEditor("ol")) document.execCommand("insertOrderedList");
+      if (!blockInEditor("ul")) document.execCommand("insertUnorderedList");
+      const u = blockInEditor("ul"); if (u) u.classList.add("checklist");
+    }
+  }
+  if (cmd==="table") insertTable();
+  ensureFirstBlock(); markDirty(); updateTblBar();
+});
+
+/* ---- tables ---- */
+function insertTable(){
+  const cells = n => Array.from({length:n}, () => "<td><br></td>").join("");
+  document.execCommand("insertHTML", false, `<table><tbody><tr>${cells(3)}</tr><tr>${cells(3)}</tr><tr>${cells(3)}</tr></tbody></table><div><br></div>`);
+  const tables = ED.querySelectorAll("table"); const t = [...tables].find(x => x.contains(getSelection().anchorNode)) || tables[tables.length-1];
+  if (t){ if (t.parentNode !== ED){ const top = topBlock(t); top.after(t); const d = document.createElement("div"); d.innerHTML = "<br>"; t.after(d); } placeCaret(t.querySelector("td"), true); }
+}
+function updateTblBar(){ $("tblBar").classList.toggle("show", !!blockInEditor("td")); }
+document.addEventListener("selectionchange", () => { if (curNote) updateTblBar(); });
+function moveCell(d){
+  const td = blockInEditor("td"); if (!td) return;
+  const all = [...td.closest("table").querySelectorAll("td")]; const i = all.indexOf(td) + d;
+  if (all[i]) placeCaret(all[i], false);
+  else if (d > 0){ tableAct("row"); }
+}
+async function tableAct(t){
+  const td = blockInEditor("td"); if (!td) return;
+  const tr = td.parentNode, table = td.closest("table"), ci = [...tr.children].indexOf(td);
+  if (t==="row"){ const n = tr.cloneNode(true); n.querySelectorAll("td").forEach(c => c.innerHTML = "<br>"); tr.after(n); placeCaret(n.children[Math.min(ci, n.children.length-1)], true); }
+  if (t==="col"){ table.querySelectorAll("tr").forEach(r => { const c = document.createElement("td"); c.innerHTML = "<br>"; (r.children[ci] || r.lastElementChild).after(c); }); placeCaret(tr.children[ci+1], true); }
+  if (t==="delrow"){ if (table.querySelectorAll("tr").length > 1){ const nx = tr.nextElementSibling || tr.previousElementSibling; tr.remove(); placeCaret(nx.children[Math.min(ci, nx.children.length-1)], true); } }
+  if (t==="delcol"){ if (tr.children.length > 1){ table.querySelectorAll("tr").forEach(r => { if (r.children[ci]) r.children[ci].remove(); }); placeCaret(tr.children[Math.max(0, ci-1)], true); } }
+  if (t==="deltable"){
+    if (!await askDelete("Delete this table?", "The table and everything in it will be removed from the note.")) return;
+    const nx = table.nextElementSibling; table.remove(); if (nx) placeCaret(nx, true);
+  }
+  ensureFirstBlock(); markDirty(); updateTblBar();
+}
+$("tblBar").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b){ restoreRange(); tableAct(b.dataset.t); } });
+
+/* ---- taps inside the note ---- */
+ED.addEventListener("click", e => {
+  const a = e.target.closest("a[href]");
+  if (a){ e.preventDefault(); showLinkPop(a); return; }
+  hideLinkPop();
+  const sk = e.target.closest(".sk");
+  if (sk && sk.dataset.sk){ e.preventDefault(); openSketch(sk.dataset.sk, sk); return; }
+  const at = e.target.closest(".att");
+  if (at && at.dataset.file){ e.preventDefault(); openFile(at); return; }
+  const li = e.target.closest("ul.checklist > li");
+  if (li && e.clientX - li.getBoundingClientRect().left < 36){ e.preventDefault(); li.classList.toggle("checked"); markDirty(); }
+});
+ED.addEventListener("paste", e => {
+  const dt = e.clipboardData; if (!dt) return;
+  const files = [...(dt.files||[])];
+  if (!files.length) [...(dt.items||[])].forEach(i => { if (i.kind==="file"){ const f = i.getAsFile(); if (f) files.push(f); } });
+  const txt = dt.getData("text/plain");
+  if (files.length && !(txt && txt.trim())){ e.preventDefault(); saveRange(); addFiles(files); return; }
+  if (txt!=null){
+    e.preventDefault();
+    URL_RE.lastIndex = 0;
+    if (URL_RE.test(txt)) { URL_RE.lastIndex = 0; document.execCommand("insertHTML", false, linkifyText(txt).replace(/\n/g,"<br>") + "&nbsp;"); }
+    else document.execCommand("insertText", false, txt);
+    markDirty();
+  }
+});
+ED.addEventListener("dragover", e => { if ([...(e.dataTransfer?.types||[])].includes("Files")) e.preventDefault(); });
+ED.addEventListener("drop", e => { const fs = [...(e.dataTransfer?.files||[])]; if (fs.length){ e.preventDefault(); saveRange(); addFiles(fs); } });
+["photoInput","cameraInput","fileInput"].forEach(id => $(id).onchange = () => { const fs = [...$(id).files]; $(id).value = ""; if (fs.length) addFiles(fs); });
+
+function insertBlock(html, key){
+  restoreRange();
+  document.execCommand("insertHTML", false, html + "<div><br></div>");
+  const el = ED.querySelector(key);
+  if (el && el.parentNode !== ED){
+    const top = topBlock(el), after = document.createElement("div");
+    const nx = el.nextElementSibling;
+    if (nx && nx.tagName==="DIV" && !isMedia(nx)) {
+      if (!nx.textContent.trim()) nx.remove();
+      else if (el.parentNode === top) { after.append(...nx.childNodes); nx.remove(); }
+    }
+    if (!after.textContent.trim()) after.innerHTML = "<br>";
+    top.after(el); el.after(after);
+    if (!top.textContent.trim() && !top.querySelector(".sk,.att") && top !== ED.firstChild) top.remove();
+    placeCaret(after, true);
+  }
+  if (el && curNote) curNote.media.set(mediaKey(el), html);
+  ensureFirstBlock(); paintMedia(); markDirty(); saveRange();
+}
+function insertSketchBlock(sid){ insertBlock(`<div class="sk" contenteditable="false" data-sk="${sid}"></div>`, `.sk[data-sk="${sid}"]`); }
+
+/* ---------- photos & files ---------- */
+async function shrink(file){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    const max = 1800, sc = Math.min(1, max/Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth*sc), h = Math.round(img.naturalHeight*sc);
+    const c = document.createElement("canvas"); c.width=w; c.height=h; c.getContext("2d").drawImage(img,0,0,w,h);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+    return {blob, w, h};
+  } finally { URL.revokeObjectURL(url); }
+}
+async function addFiles(files){
+  if (!CONN){ toast("Not connected.", true); return; }
+  for (const f of files){
+    try{
+      if (/^image\//.test(f.type) && !/svg/.test(f.type)){
+        toast("Adding photo…");
+        const {blob, w, h} = await shrink(f);
+        const bg = await uploadBlob(blob, (f.name||"photo").replace(/\.\w+$/,"") + ".jpg");
+        const sid = newId();
+        put("sketches", sid, {bg, w, h, strokes: []});
+        insertSketchBlock(sid);
+        toast("Photo added ✓ — tap it to draw on it");
+      } else {
+        toast("Adding " + (f.name || "file") + "…");
+        const mime = f.type || (/\.pdf$/i.test(f.name) ? "application/pdf" : "application/octet-stream");
+        const blob = f.type ? f : new Blob([f], {type: mime});
+        const id = await uploadBlob(blob, f.name || "file");
+        insertBlock(attHTML({file:id, name:f.name||"file", mime, size:f.size}), `.att[data-file="${id}"]`);
+        toast("Added ✓");
+      }
+    }catch(e){ toast("NOT added — " + (e.message || "check your connection"), true); }
+  }
+}
+
+/* ---------- PDF reader (pdf.js) ---------- */
+function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Could not load the PDF reader")); document.head.appendChild(s); }); }
+let pdfReady;
+function loadPdf(){
+  const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  pdfReady = pdfReady || (async () => { await loadScript(base + "pdf.min.js"); window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.js"; })().catch(e => { pdfReady = null; throw e; });
+  return pdfReady;
+}
+async function openPdf(blob){ await loadPdf(); return window.pdfjsLib.getDocument({data: await blob.arrayBuffer()}).promise; }
+async function renderPage(pdf, n, width){
+  const page = await pdf.getPage(n), v1 = page.getViewport({scale:1});
+  const vp = page.getViewport({scale: width / v1.width});
+  const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext: ctx, viewport: vp}).promise;
+  return c;
+}
+
+/* paint all photos/drawings/files in the open note */
+const imgCache = {};
+function loadBg(id){
+  if (!id) return Promise.resolve(null);
+  if (!imgCache[id]) imgCache[id] = fileBlob(id).then(b => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = URL.createObjectURL(b); })).catch(() => { delete imgCache[id]; return null; });
+  return imgCache[id];
+}
+const thumbCache = {};
+function paintMedia(){
+  ED.querySelectorAll(".sk[data-sk]").forEach(el => {
+    const sk = DATA.sketches[el.dataset.sk];
+    if (!sk){ if (!el.querySelector(".ph")) el.innerHTML = `<div class="ph">Loading drawing…</div>`; return; }
+    let c = el.querySelector("canvas");
+    if (!c){ el.innerHTML=""; c=document.createElement("canvas"); el.appendChild(c); }
+    if (c._v === sk) return; c._v = sk;
+    renderSketchTo(c, sk);
+  });
+  ED.querySelectorAll(".att[data-file]").forEach(el => {
+    if (el._painted === el.dataset.file) return; el._painted = el.dataset.file;
+    const pdf = /pdf/i.test(el.dataset.mime) || /\.pdf$/i.test(el.dataset.name);
+    const ext = ((el.dataset.name||"").split(".").pop() || "FILE").slice(0,4).toUpperCase();
+    el.innerHTML = `<div class="thumb">${pdf ? "PDF" : esc(ext)}</div><div style="min-width:0"><div class="an">${esc(el.dataset.name||"File")}</div><div class="as">${pdf?"PDF":"File"}${el.dataset.size?" · "+fmtSize(+el.dataset.size):""} · tap to open</div></div>`;
+    if (pdf){
+      const id = el.dataset.file;
+      (thumbCache[id] ||= fileBlob(id).then(openPdf).then(p => renderPage(p, 1, 160)).catch(() => null)).then(c => {
+        if (!c || !el.isConnected) return;
+        const t = el.querySelector(".thumb"); const cc = document.createElement("canvas"); cc.width = c.width; cc.height = c.height; cc.getContext("2d").drawImage(c,0,0);
+        t.innerHTML = ""; t.appendChild(cc);
+      });
+    }
+  });
+}
+
+/* ---------- file viewer ---------- */
+let fvEl = null, fvUrl = null;
+async function openFile(el){
+  fvEl = el;
+  const name = el.dataset.name || "File", pdf = /pdf/i.test(el.dataset.mime) || /\.pdf$/i.test(name);
+  $("fvName").textContent = name;
+  $("fvPages").innerHTML = `<div class="fvmsg">Opening…</div>`;
+  $("fvOpen").removeAttribute("href"); $("fvOpen").style.visibility = "hidden";
+  $("fvScrim").classList.add("open");
+  ED.blur();
+  try{
+    const blob = await fileBlob(el.dataset.file);
+    if (fvUrl) URL.revokeObjectURL(fvUrl);
+    fvUrl = URL.createObjectURL(blob);
+    $("fvOpen").href = fvUrl; $("fvOpen").download = name; $("fvOpen").style.visibility = "visible";
+    if (!pdf){ $("fvPages").innerHTML = `<div class="fvmsg">This file can’t be shown here. Tap <b>Open ↗</b> to open or save it.</div>`; return; }
+    const doc = await openPdf(blob);
+    $("fvPages").innerHTML = "";
+    const width = Math.min(1600, Math.round(Math.min(900, innerWidth) * (devicePixelRatio || 1)));
+    for (let n = 1; n <= doc.numPages; n++){
+      if (!$("fvScrim").classList.contains("open") || fvEl !== el) return;
+      const c = await renderPage(doc, n, width);
+      const wrap = document.createElement("div"); wrap.className = "fvpage";
+      wrap.appendChild(c);
+      const mk = document.createElement("button"); mk.className = "btn sm mk"; mk.textContent = "✏️ Mark up";
+      mk.onclick = () => markUpPage(doc, n, el);
+      wrap.appendChild(mk);
+      $("fvPages").appendChild(wrap);
+    }
+  }catch(e){ $("fvPages").innerHTML = `<div class="fvmsg">Couldn’t open this file. ${esc(e.message||"")}<br>Check your connection and try again.</div>`; }
+}
+function closeFile(){ $("fvScrim").classList.remove("open"); $("fvPages").innerHTML = ""; fvEl = null; }
+$("fvX").onclick = closeFile;
+$("fvDelete").onclick = async () => {
+  const el = fvEl; if (!el) return;
+  if (!await askDelete("Remove this file?", `“${el.dataset.name||"File"}” will be removed from the note.`)) return;
+  closeFile();
+  curNote && curNote.media.delete(mediaKey(el));
+  trashFile(el.dataset.file); el.remove(); ensureFirstBlock(); markDirty(); toast("Removed");
+};
+async function markUpPage(doc, n, el){
+  try{
+    toast("Preparing page " + n + "…");
+    const c = await renderPage(doc, n, 1600);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.88));
+    const bg = await uploadBlob(blob, ((el.dataset.name||"page").replace(/\.pdf$/i,"")) + " p" + n + ".jpg");
+    const sid = newId();
+    put("sketches", sid, {bg, w:c.width, h:c.height, strokes:[]});
+    closeFile();
+    // put the marked-up page right after the PDF
+    const html = `<div class="sk" contenteditable="false" data-sk="${sid}"></div>`;
+    const t = document.createElement("div"); t.innerHTML = html; const sk = t.firstChild;
+    el.after(sk); curNote.media.set(mediaKey(sk), html); paintMedia(); markDirty();
+    openSketch(sid, sk);
+  }catch(e){ toast("Couldn’t mark up — " + (e.message||"error"), true); }
+}
+
+/* =========================================================
+   Drawing / marking up photos
+   ========================================================= */
+function drawStrokes(ctx, strokes){
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  for (const s of strokes){
+    const p = s.p; if (!p || p.length<2) continue;
+    ctx.strokeStyle = s.c; ctx.lineWidth = s.s;
+    ctx.beginPath(); ctx.moveTo(p[0],p[1]);
+    if (p.length===2) ctx.lineTo(p[0]+0.1,p[1]);
+    for (let i=2;i<p.length;i+=2) ctx.lineTo(p[i],p[i+1]);
+    ctx.stroke();
+  }
+}
+async function renderSketchTo(canvas, sk){
+  canvas.width = sk.w; canvas.height = sk.h;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,sk.w,sk.h);
+  const bg = await loadBg(sk.bg);
+  if (bg) ctx.drawImage(bg,0,0,sk.w,sk.h);
+  drawStrokes(ctx, sk.strokes||[]);
+}
+const COLORS = ["#111111","#d1242f","#1f6feb","#1a7f37","#e8a400","#ffffff"];
+let SK = null, skId = null, skBlock = null, skBg = null, skColor = "#d1242f", skSize = "thin", skErase = false, skDirty = false, cur = null;
+const SC = $("skCanvas"), SX = SC.getContext("2d");
+function paintTools(){
+  $("skTools").innerHTML =
+    COLORS.map(c => `<button class="sw-color ${(!skErase&&c===skColor)?"on":""}" data-c="${c}" style="background:${c}${c==="#ffffff"?";border-color:#888":""}"></button>`).join("") +
+    `<button class="tb ${skSize==="thin"&&!skErase?"on":""}" data-sz="thin">Thin</button>
+     <button class="tb ${skSize==="thick"&&!skErase?"on":""}" data-sz="thick">Thick</button>
+     <button class="tb ${skErase?"on":""}" data-er="1">Eraser</button>
+     <button class="tb" data-undo="1">Undo</button>
+     <button class="tb" data-fit="1">Fit</button>
+     <span class="land" style="flex:1"></span>
+     ${skId?`<button class="btn red sm land" data-ldel="1">Delete</button>`:""}
+     <button class="btn green land" data-ldone="1">Done</button>`;
+  $("skTools").querySelectorAll("[data-c]").forEach(b => b.onclick = () => { skColor=b.dataset.c; skErase=false; paintTools(); });
+  $("skTools").querySelectorAll("[data-sz]").forEach(b => b.onclick = () => { skSize=b.dataset.sz; skErase=false; paintTools(); });
+  $("skTools").querySelector("[data-er]").onclick = () => { skErase=!skErase; paintTools(); };
+  $("skTools").querySelector("[data-undo]").onclick = () => { if (hist.length){ SK.strokes = hist.pop(); } else if (SK.strokes.length){ SK.strokes = SK.strokes.slice(0,-1); } else return; skDirty=true; redrawSK(); };
+  $("skTools").querySelector("[data-fit]").onclick = resetView;
+  const ld = $("skTools").querySelector("[data-ldone]"); if (ld) ld.onclick = () => $("skDone").click();
+  const lx = $("skTools").querySelector("[data-ldel]"); if (lx) lx.onclick = () => $("skDelete").click();
+}
+let VIEW = {s:1, x:0, y:0}, hist = [];
+function applyView(){ SC.style.transform = `translate(${VIEW.x}px,${VIEW.y}px) scale(${VIEW.s})`; }
+function resetView(){ VIEW = {s:1, x:0, y:0}; applyView(); }
+function fitSK(){
+  const st = $("skStage"), pad = innerHeight <= 560 ? 8 : 20;
+  const W = st.clientWidth-pad, H = st.clientHeight-pad;
+  if (W < 20 || H < 20 || !SK) return;
+  const sc = Math.min(W/SK.w, H/SK.h);
+  SC.style.width = Math.floor(SK.w*sc)+"px"; SC.style.height = Math.floor(SK.h*sc)+"px";
+  resetView();
+}
+function redrawSK(){
+  SX.fillStyle="#fff"; SX.fillRect(0,0,SK.w,SK.h);
+  if (skBg) SX.drawImage(skBg,0,0,SK.w,SK.h);
+  drawStrokes(SX, SK.strokes);
+}
+function pushHist(){ hist.push(SK.strokes.slice()); if (hist.length>60) hist.shift(); }
+async function openSketch(id, block){
+  if (document.activeElement) document.activeElement.blur();
+  ED.blur();
+  skId = id; skBlock = block;
+  const src = id && DATA.sketches[id];
+  SK = src ? {bg:src.bg||null, w:src.w, h:src.h, strokes:(src.strokes||[]).map(s=>({c:s.c,s:s.s,p:[...s.p]}))} : {bg:null, w:1200, h:900, strokes:[]};
+  skDirty = false; skErase = false; hist = [];
+  SC.width = SK.w; SC.height = SK.h;
+  $("skDelete").style.visibility = id ? "visible" : "hidden";
+  $("skScrim").classList.add("open");
+  paintTools(); fitSK();
+  skBg = null; redrawSK();
+  skBg = await loadBg(SK.bg); redrawSK();
+}
+const refit = () => { if ($("skScrim").classList.contains("open")) { fitSK(); setTimeout(fitSK, 300); } };
+try { new ResizeObserver(() => { if ($("skScrim").classList.contains("open") && !ptrs.size) fitSK(); }).observe($("skStage")); } catch(_){}
+if (window.visualViewport) visualViewport.addEventListener("resize", refit);
+window.addEventListener("resize", refit);
+window.addEventListener("orientationchange", refit);
+function skPt(e){
+  const r = SC.getBoundingClientRect();
+  const x = Math.round((e.clientX-r.left)*SK.w/r.width), y = Math.round((e.clientY-r.top)*SK.h/r.height);
+  return [Math.max(0,Math.min(SK.w,x)), Math.max(0,Math.min(SK.h,y))];
+}
+function eraseAt(x,y){
+  const R = SK.w/40/VIEW.s;
+  const before = SK.strokes.length;
+  SK.strokes = SK.strokes.filter(s => { for (let i=0;i<s.p.length;i+=2){ if (Math.hypot(s.p[i]-x, s.p[i+1]-y) < R + s.s/2) return false; } return true; });
+  if (SK.strokes.length!==before){ skDirty=true; redrawSK(); }
+}
+/* one finger = draw · two fingers = pinch to zoom / drag to move */
+const STAGE = $("skStage"), ptrs = new Map();
+let pinch = null, gesture = false, eraseSnap = null;
+STAGE.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  try{ STAGE.setPointerCapture(e.pointerId); }catch(_){}
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (ptrs.size >= 2){
+    if (cur && !cur.erase){ cur = null; redrawSK(); }
+    if (cur && cur.erase && eraseSnap){ SK.strokes = eraseSnap; hist.pop(); redrawSK(); }
+    cur = null; eraseSnap = null; gesture = true;
+    const [a,b] = [...ptrs.values()];
+    const r = SC.getBoundingClientRect();
+    pinch = { d: Math.hypot(a.x-b.x, a.y-b.y), mx:(a.x+b.x)/2, my:(a.y+b.y)/2, s:VIEW.s, x:VIEW.x, y:VIEW.y, bl:r.left-VIEW.x, bt:r.top-VIEW.y };
+    return;
+  }
+  if (gesture) return;
+  if (e.target !== SC) return;
+  const [x,y] = skPt(e);
+  if (skErase){ pushHist(); eraseSnap = SK.strokes.slice(); cur = {erase:true}; eraseAt(x,y); return; }
+  const base = skSize==="thin" ? Math.max(3, SK.w/220) : Math.max(8, SK.w/70);
+  cur = {c:skColor, s:Math.max(1, Math.round(base / Math.sqrt(VIEW.s))), p:[x,y]};
+  SX.lineCap="round"; SX.lineJoin="round"; SX.strokeStyle=cur.c; SX.lineWidth=cur.s;
+  SX.beginPath(); SX.moveTo(x,y); SX.lineTo(x+0.1,y); SX.stroke();
+});
+STAGE.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return;
+  e.preventDefault();
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pinch && ptrs.size >= 2){
+    const [a,b] = [...ptrs.values()];
+    const d = Math.hypot(a.x-b.x, a.y-b.y), mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+    const s = Math.max(1, Math.min(8, pinch.s * d / pinch.d));
+    const ux = (pinch.mx - pinch.bl - pinch.x) / pinch.s, uy = (pinch.my - pinch.bt - pinch.y) / pinch.s;
+    VIEW = { s, x: mx - pinch.bl - ux*s, y: my - pinch.bt - uy*s };
+    if (s === 1) { VIEW.x = 0; VIEW.y = 0; }
+    applyView();
+    return;
+  }
+  if (!cur) return;
+  const [x,y] = skPt(e);
+  if (cur.erase){ eraseAt(x,y); return; }
+  const p = cur.p, lx = p[p.length-2], ly = p[p.length-1];
+  if (Math.hypot(x-lx,y-ly) < 2/VIEW.s) return;
+  p.push(x,y);
+  SX.beginPath(); SX.moveTo(lx,ly); SX.lineTo(x,y); SX.stroke();
+});
+const skEnd = e => {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (ptrs.size === 0) gesture = false;
+  if (cur && !cur.erase){ pushHist(); SK.strokes.push(cur); skDirty = true; }
+  if (cur && cur.erase && SK.strokes.length === (eraseSnap||[]).length) hist.pop();
+  cur = null; eraseSnap = null;
+};
+STAGE.addEventListener("pointerup", skEnd); STAGE.addEventListener("pointercancel", skEnd);
+
+$("skDone").onclick = () => {
+  $("skScrim").classList.remove("open");
+  if (!skId && !SK.strokes.length) return;
+  if (skId && !skDirty) return;
+  const data = {bg:SK.bg, w:SK.w, h:SK.h, strokes:SK.strokes};
+  if (JSON.stringify(data).length > 400000){ toast("Drawing too big to save — use Undo/Eraser to simplify.", true); return; }
+  const sid = skId || newId();
+  put("sketches", sid, data);
+  if (!skId) insertSketchBlock(sid); else { paintMedia(); markDirty(); }
+  toast("Drawing saved ✓");
+};
+$("skDelete").onclick = async () => {
+  if (!await askDelete("Delete this drawing?", "The drawing (and photo or page, if any) will be removed from the note.")) return;
+  $("skScrim").classList.remove("open");
+  const sid = skId, s = DATA.sketches[sid];
+  if (curNote && curNote.media) curNote.media.delete("sk:" + sid);
+  if (skBlock) { skBlock.remove(); ensureFirstBlock(); markDirty(); }
+  if (s && s.bg) trashFile(s.bg);
+  del("sketches", sid);
+  toast("Drawing deleted");
+};
+
+/* =========================================================
+   Menu: backups, connection
+   ========================================================= */
+$("menuBtn").onclick = () => pick("GLugo To-Do", [
+  {label:"🔄 Refresh now", act:"refresh"},
+  {label:"🗂 Restore a backup…", act:"backups"},
+  {label:"🔗 Connection…", act:"conn"}
+], async it => {
+  if (it.act==="refresh"){ if (Q.length) await flush(); else await pull(); toast(offline ? "Offline" : "Up to date ✓", offline); }
+  if (it.act==="conn"){ $("cCode").value = CONN ? CONN.url : ""; $("cKey").value = ""; showConnect("Paste a new connection code to reconnect. Your list stays in Google Drive."); }
+  if (it.act==="backups"){
+    try{
+      toast("Loading backups…");
+      const j = await call("backups");
+      if (!j.list.length){ toast("No backups yet — the first one is made tonight.", true); return; }
+      pick("Restore a backup", j.list.slice(0,40).map(b => ({label: b.name.replace(/\.json$/,"").replace(/^data-/,"") + "  ·  " + new Date(b.t).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}), b})), async x => {
+        if (!await ask("Restore this backup?", "Your list goes back to how it was then. Your current list is saved as a backup first, so you can undo this.", "Restore")) return;
+        try{ const r = await call("restore", {id: x.b.id}); Q = []; fromServer(r.data); toast("Restored ✓"); }
+        catch(e){ toast("Not restored — " + e.message, true); }
+      });
+    }catch(e){ toast("Couldn’t load backups — " + e.message, true); }
+  }
+});
+
+/* =========================================================
+   Tabs, routing, start
+   ========================================================= */
+function setView(v){
+  view = v;
+  $("tabTodo").classList.toggle("on", v==="todo");
+  $("tabNotes").classList.toggle("on", v==="notes");
+  $("todoView").style.display = v==="todo" ? "block" : "none";
+  $("notesView").style.display = v==="notes" ? "block" : "none";
+  $("fab").textContent = v==="todo" ? "+ Add Task" : "+ New Note";
+  LS.set("gt.view", v);
+}
+$("tabTodo").onclick = () => setView("todo");
+$("tabNotes").onclick = () => setView("notes");
+$("fab").onclick = () => view==="todo" ? openTask(null) : openNote(null);
+$("toggleDone").onclick = () => { showDone = !showDone; render(); };
+
+function jumpToHash(){
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h === "notes"){ setView("notes"); return; }
+  if (!h.startsWith("item-")) return;
+  const id = h.slice(5), t = DATA.todos[id];
+  if (!t) return;
+  setView("todo"); filter = "All"; if (t.done) showDone = true;
+  render();
+  const el = $("item-"+id);
+  if (el){ el.scrollIntoView({block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"), 2500); history.replaceState(null, "", location.pathname); }
+}
+window.addEventListener("hashchange", jumpToHash);
+
+(function start(){
+  const h = location.hash.slice(1);
+  if (h.startsWith("connect=")){
+    const c = parseConn(decodeURIComponent(h.slice(8)));
+    history.replaceState(null, "", location.pathname);
+    if (c){ $("app").style.display = "none"; $("connect").style.display = "block"; tryConnect(c); return; }
+  }
+  if (!CONN){ showConnect(""); return; }
+  $("app").style.display = "block";
+  setView(LS.get("gt.view", "todo"));
+  render(); setSync(); jumpToHash();
+  if (Q.length) flush(); else pull().then(jumpToHash);
+})();
+</script>
+</body>
+</html>
