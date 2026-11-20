@@ -840,7 +840,7 @@ function saveNote(final){
   render();
 }
 function markDirty(){ noteDirty = true; $("noteState").textContent = "Editing…"; clearTimeout(saveTimer); saveTimer = setTimeout(()=>saveNote(false), 1500); }
-ED.addEventListener("input", () => { ensureFirstBlock(); restoreLost(); markDirty(); });
+ED.addEventListener("input", () => { if (ED.querySelector("img")) grabPastedImages(); ensureFirstBlock(); restoreLost(); markDirty(); });
 function restoreLost(){
   if (!curNote || !curNote.media) return;
   const have = new Set([...ED.querySelectorAll(MEDIA)].map(mediaKey));
@@ -1029,6 +1029,8 @@ ED.addEventListener("paste", e => {
   /* a copied photo often comes with a link or file name as text: keep the photo */
   const onlyLabel = !txt || !txt.trim() || (!/\n/.test(txt.trim()) && !/\s/.test(txt.trim()));
   if (files.length && onlyLabel){ e.preventDefault(); saveRange(); addFiles(files); return; }
+  /* iPhone: the screenshot isn't handed over yet — let Safari paste it, then pick it up */
+  if (!files.length && !(txt && txt.trim())){ [60, 400, 1200].forEach(ms => setTimeout(grabPastedImages, ms)); return; }
   if (txt!=null){
     e.preventDefault();
     URL_RE.lastIndex = 0;
@@ -1037,6 +1039,28 @@ ED.addEventListener("paste", e => {
     markDirty();
   }
 });
+/* turn any picture the browser pasted straight into the note into a saved photo */
+async function imgToFile(img){
+  const src = img.currentSrc || img.src || "";
+  try{ if (/^(data|blob):/.test(src)){ const b = await (await fetch(src)).blob(); if (b.size) return new File([b], "screenshot.png", {type: b.type || "image/png"}); } }catch(_){}
+  if (!img.complete || !img.naturalWidth) await new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 3000); });
+  if (!img.naturalWidth) return null;
+  const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext("2d").drawImage(img, 0, 0);
+  const b = await new Promise(r => c.toBlob(r, "image/png"));
+  return b ? new File([b], "screenshot.png", {type: "image/png"}) : null;
+}
+async function grabPastedImages(){
+  const imgs = [...ED.querySelectorAll("img")].filter(i => !i._grab);
+  for (const img of imgs){
+    img._grab = true;
+    const file = await imgToFile(img);
+    const r = document.createRange(); r.setStartBefore(img); r.collapse(true);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r); saveRange();
+    img.remove();
+    if (file) await addFiles([file]); else toast("That picture didn't come through — try pasting again.", true);
+  }
+}
 ED.addEventListener("dragover", e => { if ([...(e.dataTransfer?.types||[])].includes("Files")) e.preventDefault(); });
 ED.addEventListener("drop", e => { const fs = [...(e.dataTransfer?.files||[])]; if (fs.length){ e.preventDefault(); saveRange(); addFiles(fs); } });
 ["photoInput","cameraInput","fileInput"].forEach(id => $(id).onchange = () => { const fs = [...$(id).files]; $(id).value = ""; if (fs.length) addFiles(fs); });
