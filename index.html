@@ -1026,7 +1026,9 @@ ED.addEventListener("paste", e => {
   const files = [...(dt.files||[])];
   if (!files.length) [...(dt.items||[])].forEach(i => { if (i.kind==="file"){ const f = i.getAsFile(); if (f) files.push(f); } });
   const txt = dt.getData("text/plain");
-  if (files.length && !(txt && txt.trim())){ e.preventDefault(); saveRange(); addFiles(files); return; }
+  /* a copied photo often comes with a link or file name as text: keep the photo */
+  const onlyLabel = !txt || !txt.trim() || (!/\n/.test(txt.trim()) && !/\s/.test(txt.trim()));
+  if (files.length && onlyLabel){ e.preventDefault(); saveRange(); addFiles(files); return; }
   if (txt!=null){
     e.preventDefault();
     URL_RE.lastIndex = 0;
