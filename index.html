@@ -931,10 +931,14 @@ function openLink(href){
 /* the link window iOS opens on top of the app: close it when he comes back */
 let linkWin = null;
 function openSheet(href){
+  linkLeft = false;
   try { linkWin = window.open(href, "_blank"); if (linkWin) linkWin.opener = null; } catch(_){ linkWin = null; }
 }
+let linkLeft = false;
+document.addEventListener("visibilitychange", () => { if (document.hidden && linkWin) linkLeft = true; });
 function closeLinkWin(){
-  if (document.hidden || !linkWin) return;
+  if (document.hidden || !linkWin || !linkLeft) return;   /* only after he actually went to another app */
+  linkLeft = false;
   try { linkWin.close(); } catch(_){}
   linkWin = null;
 }
