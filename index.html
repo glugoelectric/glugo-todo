@@ -635,7 +635,7 @@ function render(){
   $("doneList").innerHTML = sd ? done.map(itemHTML).join("") : "";
   document.querySelectorAll("#todoView .sw").forEach(r => { const id=r.querySelector("[data-tid]").dataset.tid; makeSwipe(r, [{run: async () => !(await deleteTask(id)) ? false : true}]); });
   document.querySelectorAll("[data-check]").forEach(b => b.onclick = () => toggleTask(b.dataset.check));
-  document.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { if (e.target.closest("a")) return; openTask(b.dataset.open); });
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { const l = e.target.closest("a[href]"); if (l){ e.preventDefault(); openLink(l.href); return; } openTask(b.dataset.open); });
 
   const ns = notes().filter(n => (folderSel==="All" || n.folder===folderSel) && hit(n.text)).sort((a,b)=>(b.updated||0)-(a.updated||0));
   const pinned = ns.filter(n => n.pinned), rest = ns.filter(n => !n.pinned);
@@ -911,6 +911,17 @@ async function deleteNote(id){
   del("notes", id); render(); toast("Deleted"); return true;
 }
 
+/* links: from the Home Screen app, open in real Safari (not the mini browser with the X) */
+function openLink(href){
+  if (navigator.standalone && /^https?:\/\//i.test(href)) {
+    let left = false; const mark = () => { left = true; };
+    document.addEventListener("visibilitychange", mark, {once:true});
+    location.href = "x-safari-" + href;
+    setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) window.open(href, "_blank", "noopener"); }, 800);
+    return;
+  }
+  window.open(href, "_blank", "noopener");
+}
 /* link bubble */
 function showLinkPop(a){
   const p = $("linkPop"), r = a.getBoundingClientRect();
@@ -1013,7 +1024,7 @@ $("tblBar").addEventListener("click", e => { const b = e.target.closest("[data-t
 /* ---- taps inside the note ---- */
 ED.addEventListener("click", e => {
   const a = e.target.closest("a[href]");
-  if (a){ e.preventDefault(); ED.blur(); window.open(a.href, "_blank", "noopener"); return; }
+  if (a){ e.preventDefault(); ED.blur(); openLink(a.href); return; }
   hideLinkPop();
   const sk = e.target.closest(".sk");
   if (sk && sk.dataset.sk){ e.preventDefault(); openSketch(sk.dataset.sk, sk); return; }
