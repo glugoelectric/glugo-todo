@@ -923,11 +923,24 @@ function openLink(href){
     let left = false; const mark = () => { left = true; };
     document.addEventListener("visibilitychange", mark, {once:true});
     location.href = "x-safari-" + href;
-    setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) window.open(href, "_blank", "noopener"); }, 800);
+    setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) openSheet(href); }, 800);
     return;
   }
-  window.open(href, "_blank", "noopener");
+  openSheet(href);
 }
+/* the link window iOS opens on top of the app: close it when he comes back */
+let linkWin = null;
+function openSheet(href){
+  try { linkWin = window.open(href, "_blank"); if (linkWin) linkWin.opener = null; } catch(_){ linkWin = null; }
+}
+function closeLinkWin(){
+  if (document.hidden || !linkWin) return;
+  try { linkWin.close(); } catch(_){}
+  linkWin = null;
+}
+document.addEventListener("visibilitychange", closeLinkWin);
+window.addEventListener("focus", closeLinkWin);
+window.addEventListener("pageshow", closeLinkWin);
 /* link bubble */
 function showLinkPop(a){
   const p = $("linkPop"), r = a.getBoundingClientRect();
