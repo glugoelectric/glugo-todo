@@ -126,16 +126,17 @@
   /* note editor (full screen) */
   #noteScrim{align-items:stretch;z-index:30}
   .notesheet{background:var(--card);width:100%;max-width:880px;height:100%;display:flex;flex-direction:column;margin:0 auto;padding-top:env(safe-area-inset-top)}
-  @media (min-width:700px){ #noteScrim{padding:24px} .notesheet{border-radius:16px;height:calc(100vh - 48px);overflow:hidden;padding-top:0} }
-  .toolbar{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--card);overflow-x:auto;scrollbar-width:none;flex:none}
+  @media (min-width:700px){ #noteScrim{padding:24px} .notesheet{border-radius:16px;height:auto;overflow:hidden;padding-top:0} }
+  .toolbar{display:flex;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--card);overflow-x:auto;scrollbar-width:none;flex:none}
   .toolbar::-webkit-scrollbar{display:none}
+  #noteScrim.kb .toolbar{padding-bottom:8px}
   .tb{flex:none;border:0;border-radius:9px;background:var(--ghost);color:var(--ghost-ink);font-size:16px;font-weight:700;padding:9px 11px;cursor:pointer;display:flex;align-items:center;gap:5px;line-height:1}
   .tb svg{width:19px;height:19px}
   .tb.on{background:var(--blue);color:#fff}
-  .tblbar{display:none;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);overflow-x:auto;flex:none;background:var(--soft)}
+  .tblbar{display:none;gap:6px;padding:6px 10px;border-top:1px solid var(--line);overflow-x:auto;flex:none;background:var(--soft)}
   .tblbar.show{display:flex}
   .editwrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
-  #editor{min-height:100%;padding:16px 18px 160px;outline:none;font-size:19px;line-height:1.45;word-wrap:break-word;user-select:text;-webkit-user-select:text}
+  #editor{min-height:100%;padding:16px 18px 60px;outline:none;font-size:19px;line-height:1.45;word-wrap:break-word;user-select:text;-webkit-user-select:text}
   #editor > :first-child{font-size:27px;font-weight:800;line-height:1.25;margin-top:0}
   #editor:empty::before{content:"Start writing — the first line is the title";color:var(--muted)}
   #editor h2{font-size:24px;margin:10px 0 4px;line-height:1.25}
@@ -273,6 +274,14 @@
       <button class="btn green done" id="noteDone">Done</button>
       <span class="r"><span class="state" id="noteState"></span><button class="btn ghost icon" id="notePin" aria-label="Pin">📌</button></span>
     </div>
+    <div class="editwrap" id="editWrap"><div id="editor" contenteditable="true" spellcheck="true"></div></div>
+    <div class="tblbar" id="tblBar">
+      <button class="tb" data-t="row">+ Row</button>
+      <button class="tb" data-t="col">+ Column</button>
+      <button class="tb" data-t="delrow">− Row</button>
+      <button class="tb" data-t="delcol">− Column</button>
+      <button class="tb" data-t="deltable">Delete table</button>
+    </div>
     <div class="toolbar" id="toolbar">
       <button class="tb" data-cmd="style">Aa</button>
       <button class="tb" data-cmd="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 10"/></svg>Checklist</button>
@@ -288,14 +297,6 @@
       <button class="tb" data-cmd="file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>PDF / File</button>
       <button class="tb" data-cmd="draw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></svg>Draw</button>
     </div>
-    <div class="tblbar" id="tblBar">
-      <button class="tb" data-t="row">+ Row</button>
-      <button class="tb" data-t="col">+ Column</button>
-      <button class="tb" data-t="delrow">− Row</button>
-      <button class="tb" data-t="delcol">− Column</button>
-      <button class="tb" data-t="deltable">Delete table</button>
-    </div>
-    <div class="editwrap" id="editWrap"><div id="editor" contenteditable="true" spellcheck="true"></div></div>
   </div>
 </div>
 <input type="file" id="photoInput" accept="image/*" multiple style="display:none">
@@ -816,7 +817,7 @@ function openNote(id){
   noteDirty = false; $("noteState").textContent = "";
   snapshotMedia(); paintMedia(); paintFolderBtn();
   $("tblBar").classList.remove("show");
-  $("noteScrim").classList.add("open");
+  $("noteScrim").classList.add("open"); fitNote();
   $("editWrap").scrollTop = 0;
   if (!n){ ED.innerHTML = "<div><br></div>"; ED.focus(); placeCaret(ED.firstChild, true); }
 }
@@ -888,7 +889,7 @@ ED.addEventListener("keydown", e => {
 function closeNote(){
   ED.blur(); hideLinkPop(); linkifyDOM(ED);
   if (curNote){ noteDirty = noteDirty || false; saveNote(true); }
-  $("noteScrim").classList.remove("open"); curNote = null;
+  $("noteScrim").classList.remove("open"); curNote = null; fitNote();
 }
 $("noteDone").onclick = closeNote;
 $("notePin").onclick = () => { if (!curNote) return; curNote.pinned = !curNote.pinned; paintFolderBtn(); noteDirty = true; saveNote(false); toast(curNote.pinned ? "Pinned 📌" : "Unpinned"); };
@@ -1012,7 +1013,7 @@ $("tblBar").addEventListener("click", e => { const b = e.target.closest("[data-t
 /* ---- taps inside the note ---- */
 ED.addEventListener("click", e => {
   const a = e.target.closest("a[href]");
-  if (a){ e.preventDefault(); showLinkPop(a); return; }
+  if (a){ e.preventDefault(); ED.blur(); window.open(a.href, "_blank", "noopener"); return; }
   hideLinkPop();
   const sk = e.target.closest(".sk");
   if (sk && sk.dataset.sk){ e.preventDefault(); openSketch(sk.dataset.sk, sk); return; }
@@ -1308,6 +1309,21 @@ async function openSketch(id, block){
 const refit = () => { if ($("skScrim").classList.contains("open")) { fitSK(); setTimeout(fitSK, 300); } };
 try { new ResizeObserver(() => { if ($("skScrim").classList.contains("open") && !ptrs.size) fitSK(); }).observe($("skStage")); } catch(_){}
 if (window.visualViewport) visualViewport.addEventListener("resize", refit);
+/* note editor: fit to the visible area so the bottom toolbar rides just above the keyboard */
+function fitNote(){
+  const sc = $("noteScrim"), vv = window.visualViewport;
+  if (!vv || !sc.classList.contains("open")) { sc.style.top = ""; sc.style.height = ""; sc.style.bottom = ""; return; }
+  sc.style.top = vv.offsetTop + "px"; sc.style.height = vv.height + "px"; sc.style.bottom = "auto";
+  sc.classList.toggle("kb", vv.height < innerHeight - 120);
+  /* keep the line being typed visible above the toolbar */
+  const sel = getSelection();
+  if (sel.rangeCount && ED.contains(sel.anchorNode)) {
+    const r = sel.getRangeAt(0).getBoundingClientRect(), w = $("editWrap").getBoundingClientRect();
+    if (r.height && r.bottom > w.bottom - 10) $("editWrap").scrollTop += r.bottom - w.bottom + 40;
+  }
+}
+if (window.visualViewport){ visualViewport.addEventListener("resize", fitNote); visualViewport.addEventListener("scroll", fitNote); }
+window.addEventListener("resize", fitNote);
 window.addEventListener("resize", refit);
 window.addEventListener("orientationchange", refit);
 function skPt(e){
