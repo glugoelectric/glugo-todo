@@ -917,16 +917,29 @@ const APP_SITES = /(^|\.)(instagram\.com|instagr\.am|facebook\.com|fb\.me|fb\.wa
 function isAppLink(href){
   try { const u = new URL(href); if (u.hostname === "www.google.com" && u.pathname.startsWith("/maps")) return true; return APP_SITES.test(u.hostname.replace(/^www\./i, "")); } catch(_){ return false; }
 }
+/* try an outside address (Safari or an app); if nothing opened, use the next fallback */
+function tryOpen(url, fallback){
+  let left = false; const mark = () => { if (document.hidden) left = true; };
+  document.addEventListener("visibilitychange", mark);
+  location.href = url;
+  setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) fallback(); }, 900);
+}
 function openLink(href){
   if (!/^https?:\/\//i.test(href)) { location.href = href; return; }   /* tel:, mailto:, sms:, app links */
-  if (navigator.standalone && !isAppLink(href)) {
-    let left = false; const mark = () => { left = true; };
-    document.addEventListener("visibilitychange", mark, {once:true});
-    location.href = "x-safari-" + href;
-    setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) openSheet(href); }, 800);
-    return;
+  if (!navigator.standalone) { openSheet(href); return; }               /* in a browser tab: normal new tab */
+  /* Home Screen app: never use the iOS pop-up browser (it stays open on top of the app) */
+  const inSafari = () => tryOpen("x-safari-" + href, () => openSheet(href));
+  let u; try { u = new URL(href); } catch(_){ inSafari(); return; }
+  const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+  if (/(^|\.)(amazon\.com|a\.co|amzn\.to)$/.test(host)) {            /* straight into the Amazon app */
+    tryOpen("com.amazon.mobile.shopping.web://" + u.host + u.pathname + u.search, inSafari); return;
   }
-  openSheet(href);
+  if (/(^|\.)(instagram\.com|instagr\.am)$/.test(host)) {              /* straight into the Instagram app */
+    const parts = u.pathname.split("/").filter(Boolean);
+    const skip = ["p","reel","reels","tv","stories","explore","accounts","direct","s"];
+    if (parts.length === 1 && !skip.includes(parts[0])) { tryOpen("instagram://user?username=" + encodeURIComponent(parts[0]), inSafari); return; }
+  }
+  inSafari();
 }
 /* the link window iOS opens on top of the app: close it when he comes back */
 let linkWin = null;
