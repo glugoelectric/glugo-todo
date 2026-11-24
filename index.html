@@ -130,6 +130,7 @@
   .toolbar{display:flex;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--card);overflow-x:auto;scrollbar-width:none;flex:none}
   .toolbar::-webkit-scrollbar{display:none}
   #noteScrim.kb .toolbar{padding-bottom:8px}
+  #noteScrim::after{content:"";position:absolute;left:0;right:0;top:100%;height:100vh;background:var(--card)}
   .tb{flex:none;border:0;border-radius:9px;background:var(--ghost);color:var(--ghost-ink);font-size:16px;font-weight:700;padding:9px 11px;cursor:pointer;display:flex;align-items:center;gap:5px;line-height:1}
   .tb svg{width:19px;height:19px}
   .tb.on{background:var(--blue);color:#fff}
@@ -841,7 +842,13 @@ function saveNote(final){
   render();
 }
 function markDirty(){ noteDirty = true; $("noteState").textContent = "Editing…"; clearTimeout(saveTimer); saveTimer = setTimeout(()=>saveNote(false), 1500); }
-ED.addEventListener("input", () => { if (ED.querySelector("img")) grabPastedImages(); ensureFirstBlock(); restoreLost(); markDirty(); });
+/* a new checklist line (Enter on a checked item) starts unchecked */
+function uncheckNewLines(e){
+  if (e && e.inputType && e.inputType !== "insertParagraph" && e.inputType !== "insertLineBreak") return;
+  ED.querySelectorAll("ul.checklist > li.checked").forEach(li => { if (!li.textContent.trim() && !li.querySelector("img,.sk,.att")) li.classList.remove("checked"); });
+}
+ED.addEventListener("beforeinput", e => { if (e.inputType === "insertParagraph") setTimeout(uncheckNewLines, 0); });
+ED.addEventListener("input", e => { uncheckNewLines(e); if (ED.querySelector("img")) grabPastedImages(); ensureFirstBlock(); restoreLost(); markDirty(); });
 function restoreLost(){
   if (!curNote || !curNote.media) return;
   const have = new Set([...ED.querySelectorAll(MEDIA)].map(mediaKey));
