@@ -911,53 +911,11 @@ async function deleteNote(id){
   del("notes", id); render(); toast("Deleted"); return true;
 }
 
-/* links: from the Home Screen app, open in real Safari (not the mini browser with the X) */
-/* sites that have their own iPhone app: let iOS hand the link to that app */
-const APP_SITES = /(^|\.)(instagram\.com|instagr\.am|facebook\.com|fb\.me|fb\.watch|m\.me|messenger\.com|threads\.net|youtube\.com|youtu\.be|tiktok\.com|x\.com|twitter\.com|linkedin\.com|pinterest\.com|pin\.it|reddit\.com|wa\.me|whatsapp\.com|spotify\.com|maps\.apple\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl|yelp\.com|nextdoor\.com|amazon\.com|a\.co|homedepot\.com|lowes\.com|ebay\.com|zillow\.com|venmo\.com|cash\.app|paypal\.com|squareup\.com|square\.link|apps\.apple\.com|music\.apple\.com|podcasts\.apple\.com|tesla\.com|uber\.com|doordash\.com|airbnb\.com|telegram\.me|t\.me|snapchat\.com|discord\.gg|discord\.com|twitch\.tv)$/i;
-function isAppLink(href){
-  try { const u = new URL(href); if (u.hostname === "www.google.com" && u.pathname.startsWith("/maps")) return true; return APP_SITES.test(u.hostname.replace(/^www\./i, "")); } catch(_){ return false; }
-}
-/* try an outside address (Safari or an app); if nothing opened, use the next fallback */
-function tryOpen(url, fallback){
-  let left = false; const mark = () => { if (document.hidden) left = true; };
-  document.addEventListener("visibilitychange", mark);
-  location.href = url;
-  setTimeout(() => { document.removeEventListener("visibilitychange", mark); if (!left && !document.hidden) fallback(); }, 900);
-}
+/* links: open on the first tap; iOS hands app links (Instagram, Amazon…) to their apps */
 function openLink(href){
-  if (!/^https?:\/\//i.test(href)) { location.href = href; return; }   /* tel:, mailto:, sms:, app links */
-  if (!navigator.standalone) { openSheet(href); return; }               /* in a browser tab: normal new tab */
-  /* Home Screen app: never use the iOS pop-up browser (it stays open on top of the app) */
-  const inSafari = () => tryOpen("x-safari-" + href, () => openSheet(href));
-  let u; try { u = new URL(href); } catch(_){ inSafari(); return; }
-  const host = u.hostname.replace(/^www\./i, "").toLowerCase();
-  if (/(^|\.)(amazon\.com|a\.co|amzn\.to)$/.test(host)) {            /* straight into the Amazon app */
-    tryOpen("com.amazon.mobile.shopping.web://" + u.host + u.pathname + u.search, inSafari); return;
-  }
-  if (/(^|\.)(instagram\.com|instagr\.am)$/.test(host)) {              /* straight into the Instagram app */
-    const parts = u.pathname.split("/").filter(Boolean);
-    const skip = ["p","reel","reels","tv","stories","explore","accounts","direct","s"];
-    if (parts.length === 1 && !skip.includes(parts[0])) { tryOpen("instagram://user?username=" + encodeURIComponent(parts[0]), inSafari); return; }
-  }
-  inSafari();
+  if (!/^https?:\/\//i.test(href)) { location.href = href; return; }   /* tel:, mailto:, sms: */
+  window.open(href, "_blank", "noopener");
 }
-/* the link window iOS opens on top of the app: close it when he comes back */
-let linkWin = null;
-function openSheet(href){
-  linkLeft = false;
-  try { linkWin = window.open(href, "_blank"); if (linkWin) linkWin.opener = null; } catch(_){ linkWin = null; }
-}
-let linkLeft = false;
-document.addEventListener("visibilitychange", () => { if (document.hidden && linkWin) linkLeft = true; });
-function closeLinkWin(){
-  if (document.hidden || !linkWin || !linkLeft) return;   /* only after he actually went to another app */
-  linkLeft = false;
-  try { linkWin.close(); } catch(_){}
-  linkWin = null;
-}
-document.addEventListener("visibilitychange", closeLinkWin);
-window.addEventListener("focus", closeLinkWin);
-window.addEventListener("pageshow", closeLinkWin);
 /* link bubble */
 function showLinkPop(a){
   const p = $("linkPop"), r = a.getBoundingClientRect();
