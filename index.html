@@ -912,8 +912,14 @@ async function deleteNote(id){
 }
 
 /* links: from the Home Screen app, open in real Safari (not the mini browser with the X) */
+/* sites that have their own iPhone app: let iOS hand the link to that app */
+const APP_SITES = /(^|\.)(instagram\.com|instagr\.am|facebook\.com|fb\.me|fb\.watch|m\.me|messenger\.com|threads\.net|youtube\.com|youtu\.be|tiktok\.com|x\.com|twitter\.com|linkedin\.com|pinterest\.com|pin\.it|reddit\.com|wa\.me|whatsapp\.com|spotify\.com|maps\.apple\.com|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl|yelp\.com|nextdoor\.com|amazon\.com|a\.co|homedepot\.com|lowes\.com|ebay\.com|zillow\.com|venmo\.com|cash\.app|paypal\.com|squareup\.com|square\.link|apps\.apple\.com|music\.apple\.com|podcasts\.apple\.com|tesla\.com|uber\.com|doordash\.com|airbnb\.com|telegram\.me|t\.me|snapchat\.com|discord\.gg|discord\.com|twitch\.tv)$/i;
+function isAppLink(href){
+  try { const u = new URL(href); if (u.hostname === "www.google.com" && u.pathname.startsWith("/maps")) return true; return APP_SITES.test(u.hostname.replace(/^www\./i, "")); } catch(_){ return false; }
+}
 function openLink(href){
-  if (navigator.standalone && /^https?:\/\//i.test(href)) {
+  if (!/^https?:\/\//i.test(href)) { location.href = href; return; }   /* tel:, mailto:, sms:, app links */
+  if (navigator.standalone && !isAppLink(href)) {
     let left = false; const mark = () => { left = true; };
     document.addEventListener("visibilitychange", mark, {once:true});
     location.href = "x-safari-" + href;
